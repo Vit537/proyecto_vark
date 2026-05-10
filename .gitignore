@@ -1,0 +1,60 @@
+# Ignore user-specified files
+casos_de_uso.md
+VARK_API.postman_collection.json
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Python / Django (backend)
+# Virtualenvs
+/backend/venv/
+backend/.venv/
+venv/
+.venv/
+# Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+# Django local settings / env
+*.env
+backend/*.env
+.env.local
+.env.*.local
+# Databases
+*.sqlite3
+# Media / static files
+media/
+staticfiles/
+# pip
+pip-wheel-metadata/
+# pytest cache
+.pytest_cache/
+
+# Node / Next (frontend)
+frontend/node_modules/
+frontend/.next/
+.next/
+# Next env files
+frontend/.env*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+# Build outputs
+dist/
+build/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Misc
+coverage/
+*.cover
+*.py,cover
