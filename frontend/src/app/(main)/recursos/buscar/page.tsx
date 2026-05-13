@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -410,7 +410,7 @@ function RecursoCard({ recurso: r, query }: { recurso: Recurso; query: string })
 
 // ─── Toggle button ─────────────────────────────────────────────────────────────
 function ToggleBtn({
-  active, onClick, children, style,
+  /*active,*/ onClick, children, style,
 }: {
   active: boolean;
   onClick: () => void;
@@ -458,16 +458,19 @@ export default function BuscarPage() {
   // Toggles
   const toggleVark = (v: EstiloVark) => setVarkActive((prev) => {
     const next = new Set(prev);
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     next.has(v) ? next.delete(v) : next.add(v);
     return next;
   });
   const toggleDif  = (d: Dificultad) => setDifActive((prev) => {
     const next = new Set(prev);
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     next.has(d) ? next.delete(d) : next.add(d);
     return next;
   });
   const toggleTipo = (t: TipoRecurso) => setTipoActive((prev) => {
     const next = new Set(prev);
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     next.has(t) ? next.delete(t) : next.add(t);
     return next;
   });
@@ -481,17 +484,17 @@ export default function BuscarPage() {
 
   // Active filter chips
   const activeChips: { key: string; label: string; remove: () => void }[] = [
-    ...[...varkActive].map((v) => ({
+    ...Array.from(varkActive).map((v) => ({
       key: `vark-${v}`,
       label: `${v} — ${VARK_FULL[v]}`,
       remove: () => toggleVark(v),
     })),
-    ...[...difActive].map((d) => ({
+    ...Array.from(difActive).map((d) => ({
       key: `dif-${d}`,
       label: DIF_LABEL[d],
       remove: () => toggleDif(d),
     })),
-    ...[...tipoActive].map((t) => ({
+    ...Array.from(tipoActive).map((t) => ({
       key: `tipo-${t}`,
       label: t.charAt(0).toUpperCase() + t.slice(1),
       remove: () => toggleTipo(t),

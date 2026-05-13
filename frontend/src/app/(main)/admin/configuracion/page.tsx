@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -329,7 +329,7 @@ function InlineSelect({
 }
 
 /** Section divider */
-function SectionDivider({ label }: { label: string }) {
+/*function SectionDivider({ label }: { label: string }) {
   return (
     <div
       style={{
@@ -351,7 +351,7 @@ function SectionDivider({ label }: { label: string }) {
       <div style={{ flex: 1, height: 1, background: 'var(--border-glass)' }} />
     </div>
   );
-}
+}*/
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ConfiguracionPage() {
@@ -603,7 +603,7 @@ export default function ConfiguracionPage() {
             <div style={infoTipStyle}>
               <Info size={14} style={{ flexShrink: 0, marginTop: 1 }} />
               <span>
-                Los filtros se aplican antes del cálculo de similitud. Desactivar "solo aprobados"
+                Los filtros se aplican antes del cálculo de similitud. Desactivar solo aprobados
                 puede exponer recursos sin revisar en producción.
               </span>
             </div>

@@ -10,7 +10,6 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
 import Select, { SelectOption } from '@/components/ui/Select';
-import Input from '@/components/ui/Input';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Dificultad = 'Fácil' | 'Media' | 'Difícil';

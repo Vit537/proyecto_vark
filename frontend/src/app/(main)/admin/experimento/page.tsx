@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,16 +11,16 @@ import {
   Clock, CheckSquare, BookOpen, Calendar,
   FlaskConical, AlertTriangle,
 } from 'lucide-react';
-import Badge  from '@/components/ui/Badge';
+import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import Modal  from '@/components/ui/Modal';
+import Modal from '@/components/ui/Modal';
 import Select from '@/components/ui/Select';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Status     = 'activo' | 'pausado' | 'finalizado';
-type MetricKey  = 'completitud' | 'satisfaccion' | 'tiempo' | 'recursos';
-type ConfirmOp  = 'toggle' | 'reset' | null;
+type Status = 'activo' | 'pausado' | 'finalizado';
+type MetricKey = 'completitud' | 'satisfaccion' | 'tiempo' | 'recursos';
+type ConfirmOp = 'toggle' | 'reset' | null;
 
 interface GroupMetrics {
   estudiantes: number;
@@ -39,7 +39,7 @@ interface WeekPoint {
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
 const MOCK_GROUP_A: GroupMetrics = { estudiantes: 142, recursos: 18.4, completitud: 74, satisfaccion: 4.1, tiempo: 38 };
-const MOCK_GROUP_B: GroupMetrics = { estudiantes: 58,  recursos: 22.7, completitud: 83, satisfaccion: 4.6, tiempo: 47 };
+const MOCK_GROUP_B: GroupMetrics = { estudiantes: 58, recursos: 22.7, completitud: 83, satisfaccion: 4.6, tiempo: 47 };
 
 const CHART_DATA: Record<MetricKey, WeekPoint[]> = {
   completitud: [
@@ -74,16 +74,16 @@ const COLOR_A = '#3b6ef8';
 const COLOR_B = '#a78bfa';
 
 const STATUS_CFG: Record<Status, { label: string; badge: 'success' | 'warning' | 'ghost'; Icon: typeof Play }> = {
-  activo:     { label: 'Activo',     badge: 'success', Icon: Play    },
-  pausado:    { label: 'Pausado',    badge: 'warning', Icon: Pause   },
-  finalizado: { label: 'Finalizado', badge: 'ghost',   Icon: FlaskConical },
+  activo: { label: 'Activo', badge: 'success', Icon: Play },
+  pausado: { label: 'Pausado', badge: 'warning', Icon: Pause },
+  finalizado: { label: 'Finalizado', badge: 'ghost', Icon: FlaskConical },
 };
 
 const METRIC_OPTIONS = [
-  { value: 'completitud',  label: 'Tasa de completitud de quizzes (%)' },
-  { value: 'satisfaccion', label: 'Satisfacción promedio (1-5)'        },
-  { value: 'tiempo',       label: 'Tiempo promedio en plataforma (min)'},
-  { value: 'recursos',     label: 'Promedio de recursos vistos'        },
+  { value: 'completitud', label: 'Tasa de completitud de quizzes (%)' },
+  { value: 'satisfaccion', label: 'Satisfacción promedio (1-5)' },
+  { value: 'tiempo', label: 'Tiempo promedio en plataforma (min)' },
+  { value: 'recursos', label: 'Promedio de recursos vistos' },
 ];
 
 const METRIC_UNIT: Record<MetricKey, string> = {
@@ -101,14 +101,14 @@ const CARD: React.CSSProperties = {
   boxShadow: '0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
 };
 
-const PAGE_VARIANTS = {
-  hidden:  { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
-};
+/*const PAGE_VARIANTS = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] } },
+};*/
 
 const STAGGER = {
   container: { hidden: {}, visible: { transition: { staggerChildren: 0.07 } } },
-  item:      { hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0, transition: { duration: 0.3 } } },
+  item: { hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0, transition: { duration: 0.3 } } },
 };
 
 // ─── Custom tooltip ───────────────────────────────────────────────────────────
@@ -143,13 +143,13 @@ function ChartTooltip({ active, payload, label, unit }: any) {
 
 // ─── Metric card ──────────────────────────────────────────────────────────────
 
-interface MetricCardProps {
+/*interface MetricCardProps {
   icon: React.ReactNode; label: string;
   valueA: string; valueB: string;
   highlight?: 'a' | 'b' | null;
-}
+}*/
 
-function MetricCard({ icon, label, valueA, valueB, highlight }: MetricCardProps) {
+/*function MetricCard({ icon, label, valueA, valueB, highlight }: MetricCardProps) {
   return (
     <motion.div
       variants={STAGGER.item}
@@ -191,20 +191,20 @@ function MetricCard({ icon, label, valueA, valueB, highlight }: MetricCardProps)
       </div>
     </motion.div>
   );
-}
+}*/
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ExperimentoPage() {
-  const [status, setStatus]         = useState<Status>('activo');
-  const [groupBPct, setGroupBPct]   = useState(30);
-  const [metric, setMetric]         = useState<MetricKey>('completitud');
-  const [confirmOp, setConfirmOp]   = useState<ConfirmOp>(null);
-  const [chartKey, setChartKey]     = useState(0);
+  const [status, setStatus] = useState<Status>('activo');
+  const [groupBPct, setGroupBPct] = useState(30);
+  const [metric, setMetric] = useState<MetricKey>('completitud');
+  const [confirmOp, setConfirmOp] = useState<ConfirmOp>(null);
+  const [chartKey, setChartKey] = useState(0);
 
   const groupAPct = 100 - groupBPct;
   const chartData = useMemo(() => CHART_DATA[metric], [metric]);
-  const unit      = METRIC_UNIT[metric];
+  const unit = METRIC_UNIT[metric];
 
   // Determine which group is "winning" per metric
   const winnerA = MOCK_GROUP_A.completitud > MOCK_GROUP_B.completitud;
@@ -227,20 +227,20 @@ export default function ExperimentoPage() {
   };
 
   const toggleLabel = status === 'activo' ? 'Pausar experimento' : 'Activar experimento';
-  const toggleIcon  = status === 'activo' ? <Pause size={15} /> : <Play size={15} />;
-  const toggleVar   = status === 'activo' ? 'danger' as const : 'primary' as const;
+  const toggleIcon = status === 'activo' ? <Pause size={15} /> : <Play size={15} />;
+  const toggleVar = status === 'activo' ? 'danger' as const : 'primary' as const;
 
   const confirmTitle = confirmOp === 'reset'
     ? 'Restablecer experimento'
     : status === 'activo'
-    ? 'Pausar experimento'
-    : 'Activar experimento';
+      ? 'Pausar experimento'
+      : 'Activar experimento';
 
   const confirmMsg = confirmOp === 'reset'
     ? 'Esta acción restablecerá todos los datos del experimento a sus valores iniciales. Los datos históricos se perderán. ¿Deseas continuar?'
     : status === 'activo'
-    ? 'Pausar el experimento detendrá la asignación de nuevos estudiantes a los grupos y congelará las métricas actuales.'
-    : 'Activar el experimento reanudará la asignación aleatoria de estudiantes a los grupos A y B según la distribución configurada.';
+      ? 'Pausar el experimento detendrá la asignación de nuevos estudiantes a los grupos y congelará las métricas actuales.'
+      : 'Activar el experimento reanudará la asignación aleatoria de estudiantes a los grupos A y B según la distribución configurada.';
 
   const { badge: statusBadge, label: statusLabel } = STATUS_CFG[status];
 
@@ -248,7 +248,6 @@ export default function ExperimentoPage() {
 
   return (
     <motion.div
-      variants={PAGE_VARIANTS}
       initial="hidden"
       animate="visible"
       style={{ fontFamily: 'var(--font-dm-sans), DM Sans, sans-serif' }}
@@ -276,7 +275,7 @@ export default function ExperimentoPage() {
               CU-20 · Personalización adaptativa — RF13
             </p>
           </div>
-          <Badge variant={statusBadge} size="md" style={{ marginLeft: 8 }}>
+          <Badge variant={statusBadge} size="md">
             {statusLabel}
           </Badge>
         </div>

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8,13 +8,12 @@ import {
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge  from '@/components/ui/Badge';
-import Modal  from '@/components/ui/Modal';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type EstiloVark  = 'V' | 'A' | 'R' | 'K';
 type Dificultad  = 1 | 2 | 3;
 type Origen      = 'IA' | 'Manual';
-type EstadoRec   = 'Pendiente' | 'Aprobado' | 'Rechazado' | 'Corrección';
+type EstadoRec   = 'Pendiente' | 'Aprobado' | 'Rechazado' | 'CorrecciÃ³n';
 type TabId       = 'Pendiente' | 'Aprobado' | 'Rechazado';
 
 interface HistorialItem {
@@ -40,15 +39,15 @@ interface RecursoRevision {
   historial:   HistorialItem[];
 }
 
-// ─── Mock ─────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Mock â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const MOCK: RecursoRevision[] = [
   {
     id: '1',
-    titulo: 'Python para principiantes – Curso completo en video',
+    titulo: 'Python para principiantes â€“ Curso completo en video',
     url: 'https://www.youtube.com/watch?v=kqtD5dpn9C8',
-    urlCorta: 'youtube.com/watch?v=kqtD5…',
+    urlCorta: 'youtube.com/watch?v=kqtD5â€¦',
     descripcion:
-      'Curso introductorio de Python con más de 4 horas de contenido audiovisual. Cubre variables, tipos de datos, estructuras de control y funciones con ejemplos prácticos y ejercicios resueltos en pantalla.',
+      'Curso introductorio de Python con mÃ¡s de 4 horas de contenido audiovisual. Cubre variables, tipos de datos, estructuras de control y funciones con ejemplos prÃ¡cticos y ejercicios resueltos en pantalla.',
     vark: 'V', dificultad: 1, tema: 'python',
     origen: 'IA', autor: 'Sistema IA', hace: 'Hace 2 horas',
     estado: 'Pendiente',
@@ -56,11 +55,11 @@ const MOCK: RecursoRevision[] = [
   },
   {
     id: '2',
-    titulo: 'Real Python – Guía de comprensión de listas',
+    titulo: 'Real Python â€“ GuÃ­a de comprensiÃ³n de listas',
     url: 'https://realpython.com/list-comprehension-python/',
-    urlCorta: 'realpython.com/list-compre…',
+    urlCorta: 'realpython.com/list-compreâ€¦',
     descripcion:
-      'Artículo técnico detallado con múltiples ejemplos de código, tablas comparativas y referencias a la documentación oficial de Python sobre comprensión de listas.',
+      'ArtÃ­culo tÃ©cnico detallado con mÃºltiples ejemplos de cÃ³digo, tablas comparativas y referencias a la documentaciÃ³n oficial de Python sobre comprensiÃ³n de listas.',
     vark: 'R', dificultad: 2, tema: 'cadenas',
     origen: 'IA', autor: 'Sistema IA', hace: 'Hace 5 horas',
     estado: 'Pendiente',
@@ -68,56 +67,56 @@ const MOCK: RecursoRevision[] = [
   },
   {
     id: '3',
-    titulo: 'Podcast: Fundamentos de algoritmos – CS50',
+    titulo: 'Podcast: Fundamentos de algoritmos â€“ CS50',
     url: 'https://podcast.example.com/cs50-algorithms',
-    urlCorta: 'podcast.example.com/cs50…',
+    urlCorta: 'podcast.example.com/cs50â€¦',
     descripcion:
-      'Serie de episodios de audio basados en el curso CS50 de Harvard que explican recursividad, búsqueda binaria y ordenamiento de forma auditiva con ejemplos narrados.',
+      'Serie de episodios de audio basados en el curso CS50 de Harvard que explican recursividad, bÃºsqueda binaria y ordenamiento de forma auditiva con ejemplos narrados.',
     vark: 'A', dificultad: 2, tema: 'algoritmos',
-    origen: 'Manual', autor: 'Prof. García', hace: 'Hace 1 día',
+    origen: 'Manual', autor: 'Prof. GarcÃ­a', hace: 'Hace 1 dÃ­a',
     estado: 'Pendiente',
     historial: [
-      { fecha: '09 may 2026', usuario: 'Prof. García', accion: 'Recurso enviado para revisión.' },
+      { fecha: '09 may 2026', usuario: 'Prof. GarcÃ­a', accion: 'Recurso enviado para revisiÃ³n.' },
     ],
   },
   {
     id: '4',
-    titulo: 'Exercism – Track de Python: ejercicios prácticos',
+    titulo: 'Exercism â€“ Track de Python: ejercicios prÃ¡cticos',
     url: 'https://exercism.org/tracks/python',
     urlCorta: 'exercism.org/tracks/python',
     descripcion:
-      'Plataforma de ejercicios progresivos con retroalimentación de mentores. Incluye más de 130 ejercicios con casos de prueba automatizados.',
+      'Plataforma de ejercicios progresivos con retroalimentaciÃ³n de mentores. Incluye mÃ¡s de 130 ejercicios con casos de prueba automatizados.',
     vark: 'K', dificultad: 2, tema: 'estructuras',
-    origen: 'IA', autor: 'Sistema IA', hace: 'Hace 2 días',
+    origen: 'IA', autor: 'Sistema IA', hace: 'Hace 2 dÃ­as',
     estado: 'Aprobado',
     historial: [
-      { fecha: '08 may 2026', usuario: 'Sistema IA',    accion: 'Recurso sugerido automáticamente.' },
-      { fecha: '08 may 2026', usuario: 'Prof. Martínez', accion: 'Aprobado y publicado en repositorio.' },
+      { fecha: '08 may 2026', usuario: 'Sistema IA',    accion: 'Recurso sugerido automÃ¡ticamente.' },
+      { fecha: '08 may 2026', usuario: 'Prof. MartÃ­nez', accion: 'Aprobado y publicado en repositorio.' },
     ],
   },
   {
     id: '5',
-    titulo: 'Visualgo – Visualización de estructuras de datos',
+    titulo: 'Visualgo â€“ VisualizaciÃ³n de estructuras de datos',
     url: 'https://visualgo.net/en',
     urlCorta: 'visualgo.net/en',
     descripcion:
-      'Herramienta interactiva que anima visualmente algoritmos de ordenamiento, árboles y grafos. Permite controlar la velocidad y ver el paso a paso de cada operación.',
+      'Herramienta interactiva que anima visualmente algoritmos de ordenamiento, Ã¡rboles y grafos. Permite controlar la velocidad y ver el paso a paso de cada operaciÃ³n.',
     vark: 'V', dificultad: 3, tema: 'algoritmos',
-    origen: 'Manual', autor: 'Prof. Ruiz', hace: 'Hace 3 días',
+    origen: 'Manual', autor: 'Prof. Ruiz', hace: 'Hace 3 dÃ­as',
     estado: 'Rechazado',
     motivo: 'El nivel de dificultad no corresponde al perfil actual del grupo. Agregar en ciclo 3.',
     historial: [
-      { fecha: '07 may 2026', usuario: 'Prof. Ruiz',     accion: 'Recurso enviado para revisión.' },
-      { fecha: '07 may 2026', usuario: 'Prof. Martínez', accion: 'Rechazado con motivo especificado.' },
+      { fecha: '07 may 2026', usuario: 'Prof. Ruiz',     accion: 'Recurso enviado para revisiÃ³n.' },
+      { fecha: '07 may 2026', usuario: 'Prof. MartÃ­nez', accion: 'Rechazado con motivo especificado.' },
     ],
   },
   {
     id: '6',
-    titulo: 'Automate the Boring Stuff – Capítulo sobre archivos',
+    titulo: 'Automate the Boring Stuff â€“ CapÃ­tulo sobre archivos',
     url: 'https://automatetheboringstuff.com/2e/chapter9/',
-    urlCorta: 'automatetheboringstuff.com…',
+    urlCorta: 'automatetheboringstuff.comâ€¦',
     descripcion:
-      'Capítulo gratuito del libro que cubre lectura y escritura de archivos, rutas, manejo de CSV y PDF en Python.',
+      'CapÃ­tulo gratuito del libro que cubre lectura y escritura de archivos, rutas, manejo de CSV y PDF en Python.',
     vark: 'R', dificultad: 1, tema: 'python',
     origen: 'IA', autor: 'Sistema IA', hace: 'Hace 4 horas',
     estado: 'Pendiente',
@@ -131,18 +130,15 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'Rechazado',  label: 'Rechazados'  },
 ];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const VARK_BADGE: Record<EstiloVark, 'vark-v' | 'vark-a' | 'vark-r' | 'vark-k'> = {
   V: 'vark-v', A: 'vark-a', R: 'vark-r', K: 'vark-k',
 };
-const VARK_LABEL: Record<EstiloVark, string> = {
-  V: 'Visual', A: 'Auditivo', R: 'Lectura', K: 'Kinestésico',
-};
 const DIFICULTAD_LABEL: Record<Dificultad, string> = {
-  1: '★ Básico', 2: '★★ Intermedio', 3: '★★★ Avanzado',
+  1: 'â˜… BÃ¡sico', 2: 'â˜…â˜… Intermedio', 3: 'â˜…â˜…â˜… Avanzado',
 };
 const TEMA_LABEL: Record<string, string> = {
-  python:      'Python Básico',
+  python:      'Python BÃ¡sico',
   cadenas:     'Cadenas',
   estructuras: 'Estructuras de datos',
   funciones:   'Funciones',
@@ -150,7 +146,7 @@ const TEMA_LABEL: Record<string, string> = {
   algoritmos:  'Algoritmos',
 };
 
-// ─── Inline editable select ────────────────────────────────────────────────────
+// â”€â”€â”€ Inline editable select â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function InlineSelect<T extends string>({
   value, options, onChange,
 }: {
@@ -184,7 +180,7 @@ function InlineSelect<T extends string>({
   );
 }
 
-// ─── Section label ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Section label â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <p
@@ -201,7 +197,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ─── List item card ────────────────────────────────────────────────────────────
+// â”€â”€â”€ List item card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function RevisionCard({
   recurso: r, selected, acting, onClick,
 }: {
@@ -306,7 +302,7 @@ function RevisionCard({
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function AprobacionPage() {
   const [recursos,    setRecursos]    = useState<RecursoRevision[]>(MOCK);
   const [tab,         setTab]         = useState<TabId>('Pendiente');
@@ -348,7 +344,7 @@ export default function AprobacionPage() {
     setEditTema(r.tema);
   };
 
-  const applyAction = (id: string, nuevoEstado: 'Aprobado' | 'Rechazado' | 'Corrección') => {
+  const applyAction = (id: string, nuevoEstado: 'Aprobado' | 'Rechazado' | 'CorrecciÃ³n') => {
     setActionId(id);
     setTimeout(() => {
       setRecursos((prev) =>
@@ -371,7 +367,7 @@ export default function AprobacionPage() {
                         ? 'Aprobado y publicado en repositorio.'
                         : nuevoEstado === 'Rechazado'
                         ? `Rechazado. Motivo: ${motivo || 'Sin especificar.'}`
-                        : 'Corrección solicitada.',
+                        : 'CorrecciÃ³n solicitada.',
                   },
                 ],
               }
@@ -390,7 +386,7 @@ export default function AprobacionPage() {
     applyAction(selectedId!, 'Rechazado');
   };
 
-  // ─── Render ────────────────────────────────────────────────────────────────
+  // â”€â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   return (
     <div
       style={{
@@ -400,9 +396,9 @@ export default function AprobacionPage() {
         overflow: 'hidden',
       }}
     >
-      {/* ════════════════════════════════════════════════════════════════════
-          LEFT — 60%
-      ═══════════════════════════════════════════════════════════════════════ */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+          LEFT â€” 60%
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       <div
         style={{
           width: '60%',
@@ -423,7 +419,7 @@ export default function AprobacionPage() {
               }}
             >
               Pendientes de{' '}
-              <span style={{ color: 'var(--accent-blue)' }}>revisión</span>
+              <span style={{ color: 'var(--accent-blue)' }}>revisiÃ³n</span>
             </h1>
             {counts.Pendiente > 0 && (
               <Badge variant="warning">{counts.Pendiente} pendientes</Badge>
@@ -550,9 +546,9 @@ export default function AprobacionPage() {
         </div>
       </div>
 
-      {/* ════════════════════════════════════════════════════════════════════
-          RIGHT — 40%  sticky
-      ═══════════════════════════════════════════════════════════════════════ */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+          RIGHT â€” 40%  sticky
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       <div
         style={{
           width: '40%',
@@ -628,7 +624,7 @@ export default function AprobacionPage() {
 
               {/* Description */}
               <div>
-                <SectionLabel>Descripción</SectionLabel>
+                <SectionLabel>DescripciÃ³n</SectionLabel>
                 <p
                   style={{
                     margin: 0,
@@ -653,10 +649,10 @@ export default function AprobacionPage() {
                     <InlineSelect<EstiloVark>
                       value={editVark}
                       options={[
-                        { value: 'V', label: 'V — Visual' },
-                        { value: 'A', label: 'A — Auditivo' },
-                        { value: 'R', label: 'R — Lectura' },
-                        { value: 'K', label: 'K — Kinestésico' },
+                        { value: 'V', label: 'V â€” Visual' },
+                        { value: 'A', label: 'A â€” Auditivo' },
+                        { value: 'R', label: 'R â€” Lectura' },
+                        { value: 'K', label: 'K â€” KinestÃ©sico' },
                       ]}
                       onChange={setEditVark}
                     />
@@ -665,9 +661,9 @@ export default function AprobacionPage() {
                     <InlineSelect<string>
                       value={String(editDif)}
                       options={[
-                        { value: '1', label: '★ Básico' },
-                        { value: '2', label: '★★ Intermedio' },
-                        { value: '3', label: '★★★ Avanzado' },
+                        { value: '1', label: 'â˜… BÃ¡sico' },
+                        { value: '2', label: 'â˜…â˜… Intermedio' },
+                        { value: '3', label: 'â˜…â˜…â˜… Avanzado' },
                       ]}
                       onChange={(v) => setEditDif(Number(v) as Dificultad)}
                     />
@@ -689,7 +685,7 @@ export default function AprobacionPage() {
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
                       <BookOpen size={13} color="var(--text-muted)" />
-                      <SectionLabel>Historial de revisión</SectionLabel>
+                      <SectionLabel>Historial de revisiÃ³n</SectionLabel>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {selected.historial.map((h, i) => (
@@ -728,7 +724,7 @@ export default function AprobacionPage() {
                                 color: 'var(--text-muted)',
                               }}
                             >
-                              {h.usuario} · {h.fecha}
+                              {h.usuario} Â· {h.fecha}
                             </p>
                           </div>
                         </div>
@@ -764,12 +760,12 @@ export default function AprobacionPage() {
                 </>
               )}
 
-              {/* Actions — only for pending */}
+              {/* Actions â€” only for pending */}
               {selected.estado === 'Pendiente' && (
                 <>
                   <div style={{ height: 1, background: 'var(--border-glass)' }} />
 
-                  {/* Textarea de motivo — aparece con AnimatePresence */}
+                  {/* Textarea de motivo â€” aparece con AnimatePresence */}
                   <AnimatePresence>
                     {rechazando && (
                       <motion.div
@@ -793,7 +789,7 @@ export default function AprobacionPage() {
                             value={motivo}
                             onChange={(e) => { setMotivo(e.target.value); if (motivoErr) setMotivoErr(''); }}
                             rows={3}
-                            placeholder="Explica brevemente por qué se rechaza este recurso…"
+                            placeholder="Explica brevemente por quÃ© se rechaza este recursoâ€¦"
                             style={{
                               width: '100%', boxSizing: 'border-box',
                               padding: '10px 12px',
@@ -884,7 +880,7 @@ export default function AprobacionPage() {
                     <Button
                       variant="ghost"
                       disabled={actionId !== null}
-                      onClick={() => applyAction(selected.id, 'Corrección')}
+                      onClick={() => applyAction(selected.id, 'CorrecciÃ³n')}
                       style={{
                         width: '100%', justifyContent: 'center',
                         border: '1px solid rgba(255,215,64,0.3)',
@@ -892,7 +888,7 @@ export default function AprobacionPage() {
                       }}
                     >
                       <AlertTriangle size={14} />
-                      Solicitar corrección
+                      Solicitar correcciÃ³n
                     </Button>
                   </div>
                 </>
@@ -907,13 +903,13 @@ export default function AprobacionPage() {
                     background:
                       selected.estado === 'Aprobado'
                         ? 'rgba(0,230,118,0.06)'
-                        : selected.estado === 'Corrección'
+                        : selected.estado === 'CorrecciÃ³n'
                         ? 'rgba(255,215,64,0.06)'
                         : 'rgba(255,82,82,0.06)',
                     border: `1px solid ${
                       selected.estado === 'Aprobado'
                         ? 'rgba(0,230,118,0.25)'
-                        : selected.estado === 'Corrección'
+                        : selected.estado === 'CorrecciÃ³n'
                         ? 'rgba(255,215,64,0.25)'
                         : 'rgba(255,82,82,0.2)'
                     }`,
@@ -921,16 +917,16 @@ export default function AprobacionPage() {
                     color:
                       selected.estado === 'Aprobado'
                         ? 'var(--success)'
-                        : selected.estado === 'Corrección'
+                        : selected.estado === 'CorrecciÃ³n'
                         ? 'var(--warning)'
                         : 'var(--danger)',
                   }}
                 >
                   {selected.estado === 'Aprobado'
-                    ? '✓ Publicado en el repositorio de recursos.'
-                    : selected.estado === 'Corrección'
-                    ? '⚠ Corrección solicitada al autor del recurso.'
-                    : '✗ Recurso rechazado.'}
+                    ? 'âœ“ Publicado en el repositorio de recursos.'
+                    : selected.estado === 'CorrecciÃ³n'
+                    ? 'âš  CorrecciÃ³n solicitada al autor del recurso.'
+                    : 'âœ— Recurso rechazado.'}
                 </div>
               )}
             </motion.div>
@@ -966,7 +962,7 @@ export default function AprobacionPage() {
                   fontSize: '0.875rem', maxWidth: 220, lineHeight: 1.55,
                 }}
               >
-                Selecciona una sugerencia para ver el detalle y tomar acción
+                Selecciona una sugerencia para ver el detalle y tomar acciÃ³n
               </p>
             </motion.div>
           )}
@@ -976,7 +972,7 @@ export default function AprobacionPage() {
   );
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function MetaRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div
@@ -1009,3 +1005,4 @@ const labelStyle: React.CSSProperties = {
   textTransform: 'uppercase', letterSpacing: '0.1em',
   fontFamily: 'var(--font-dm-sans)',
 };
+

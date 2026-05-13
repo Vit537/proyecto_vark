@@ -1,6 +1,6 @@
-'use client';
+﻿'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
 import {
   ArrowRight, CheckCircle, XCircle, RotateCcw,
@@ -11,7 +11,7 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface Opcion {
   id: string;
   texto: string;
@@ -28,15 +28,15 @@ interface QuizMeta {
   titulo: string;
   tema: string;
   descripcion: string;
-  dificultad: 'Fácil' | 'Media' | 'Difícil';
+  dificultad: 'FÃ¡cil' | 'Media' | 'DifÃ­cil';
   tiempoEstimado: string;
 }
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Mock data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const QUIZ_META: QuizMeta = {
   titulo:         'Quiz: Cadenas de texto',
   tema:           'Cadenas',
-  descripcion:    'Evalúa tu comprensión sobre manipulación de cadenas, métodos integrados y operaciones básicas en Python.',
+  descripcion:    'EvalÃºa tu comprensiÃ³n sobre manipulaciÃ³n de cadenas, mÃ©todos integrados y operaciones bÃ¡sicas en Python.',
   dificultad:     'Media',
   tiempoEstimado: '~8 min',
 };
@@ -44,7 +44,7 @@ const QUIZ_META: QuizMeta = {
 const PREGUNTAS: Pregunta[] = [
   {
     id: '1',
-    enunciado: '¿Qué método de cadena elimina los espacios en blanco al inicio y al final de un string en Python?',
+    enunciado: 'Â¿QuÃ© mÃ©todo de cadena elimina los espacios en blanco al inicio y al final de un string en Python?',
     opciones: [
       { id: 'a', texto: 'strip()' },
       { id: 'b', texto: 'trim()' },
@@ -55,7 +55,7 @@ const PREGUNTAS: Pregunta[] = [
   },
   {
     id: '2',
-    enunciado: '¿Cuál es el resultado de la expresión "hola" * 3 en Python?',
+    enunciado: 'Â¿CuÃ¡l es el resultado de la expresiÃ³n "hola" * 3 en Python?',
     opciones: [
       { id: 'a', texto: '"hola hola hola"' },
       { id: 'b', texto: '"holaholahola"' },
@@ -66,7 +66,7 @@ const PREGUNTAS: Pregunta[] = [
   },
   {
     id: '3',
-    enunciado: '¿Qué índice tiene el último carácter de la cadena "Python" si se accede con índice negativo?',
+    enunciado: 'Â¿QuÃ© Ã­ndice tiene el Ãºltimo carÃ¡cter de la cadena "Python" si se accede con Ã­ndice negativo?',
     opciones: [
       { id: 'a', texto: '-6' },
       { id: 'b', texto: '5' },
@@ -77,7 +77,7 @@ const PREGUNTAS: Pregunta[] = [
   },
   {
     id: '4',
-    enunciado: '¿Cuál de los siguientes métodos verifica si todos los caracteres de una cadena son letras?',
+    enunciado: 'Â¿CuÃ¡l de los siguientes mÃ©todos verifica si todos los caracteres de una cadena son letras?',
     opciones: [
       { id: 'a', texto: 'isalpha()' },
       { id: 'b', texto: 'isword()' },
@@ -88,7 +88,7 @@ const PREGUNTAS: Pregunta[] = [
   },
   {
     id: '5',
-    enunciado: '¿Qué produce el slice "Python"[1:4] en Python?',
+    enunciado: 'Â¿QuÃ© produce el slice "Python"[1:4] en Python?',
     opciones: [
       { id: 'a', texto: '"Pyt"' },
       { id: 'b', texto: '"yth"' },
@@ -99,14 +99,14 @@ const PREGUNTAS: Pregunta[] = [
   },
 ];
 
-// ─── Difficulty badge ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Difficulty badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const DIFICULTAD_VARIANT = {
-  'Fácil': 'success',
+  'FÃ¡cil': 'success',
   'Media': 'warning',
-  'Difícil': 'danger',
+  'DifÃ­cil': 'danger',
 } as const;
 
-// ─── Animated counter ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Animated counter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function AnimatedNumber({ to, duration = 1.2 }: { to: number; duration?: number }) {
   const count = useMotionValue(0);
   const rounded = useTransform(count, (v) => Math.round(v));
@@ -116,12 +116,12 @@ function AnimatedNumber({ to, duration = 1.2 }: { to: number; duration?: number 
     const controls = animate(count, to, { duration, ease: 'easeOut' });
     const unsub = rounded.on('change', setDisplay);
     return () => { controls.stop(); unsub(); };
-  }, [to]);
+  }, [count, duration, rounded, to]);
 
   return <>{display}</>;
 }
 
-// ─── Circular progress ────────────────────────────────────────────────────────
+// â”€â”€â”€ Circular progress â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function CircularProgress({ pct, color }: { pct: number; color: string }) {
   const r = 56;
   const circ = 2 * Math.PI * r;
@@ -148,13 +148,13 @@ function CircularProgress({ pct, color }: { pct: number; color: string }) {
   );
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Main page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type Screen = 'start' | 'question' | 'result';
 
 export default function QuizPage() {
   const [screen,      setScreen]      = useState<Screen>('start');
   const [currentIdx,  setCurrentIdx]  = useState(0);
-  const [respuestas,  setRespuestas]  = useState<Record<string, string>>({});   // preguntaId → opcionId elegida
+  const [respuestas,  setRespuestas]  = useState<Record<string, string>>({});   // preguntaId â†’ opcionId elegida
   const [selectedOpt, setSelectedOpt] = useState<string | null>(null);
   const [direction,   setDirection]   = useState(1);   // 1 = fwd, -1 = bwd
   const [exitModal,   setExitModal]   = useState(false);
@@ -164,7 +164,7 @@ export default function QuizPage() {
   const pregunta = PREGUNTAS[currentIdx];
   const isLast   = currentIdx === total - 1;
 
-  // ── Score ──────────────────────────────────────────────────────────────────
+  // â”€â”€ Score â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const correctas = PREGUNTAS.filter(
     (p) => respuestas[p.id] === p.correctaId,
   ).length;
@@ -174,7 +174,7 @@ export default function QuizPage() {
     pct >= 40 ? 'var(--warning)' :
     'var(--danger)';
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
+  // â”€â”€ Handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const handleNext = () => {
     if (!selectedOpt) return;
     const updated = { ...respuestas, [pregunta.id]: selectedOpt };
@@ -204,16 +204,16 @@ export default function QuizPage() {
   // Pre-fill selection if revisiting
   useEffect(() => {
     setSelectedOpt(respuestas[pregunta?.id] ?? null);
-  }, [currentIdx]);
+  }, [pregunta?.id, respuestas]);
 
-  // ── Slide variants ─────────────────────────────────────────────────────────
+  // â”€â”€ Slide variants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const slideVariants = {
     enter:  (d: number) => ({ opacity: 0, x: d > 0 ? 60 : -60 }),
     center: { opacity: 1, x: 0, transition: { duration: 0.32, ease: [0.4, 0, 0.2, 1] as [number,number,number,number] } },
     exit:   (d: number) => ({ opacity: 0, x: d > 0 ? -60 : 60, transition: { duration: 0.22 } }),
   };
 
-  // ── Background wrapper ─────────────────────────────────────────────────────
+  // â”€â”€ Background wrapper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   return (
     <div
       style={{
@@ -233,9 +233,9 @@ export default function QuizPage() {
       >
         <AnimatePresence mode="wait">
 
-          {/* ══════════════════════════════════════════════════════════════════
+          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
               SCREEN: START
-          ═══════════════════════════════════════════════════════════════════ */}
+          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
           {screen === 'start' && (
             <motion.div
               key="start"
@@ -323,9 +323,9 @@ export default function QuizPage() {
             </motion.div>
           )}
 
-          {/* ══════════════════════════════════════════════════════════════════
+          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
               SCREEN: QUESTION
-          ═══════════════════════════════════════════════════════════════════ */}
+          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
           {screen === 'question' && (
             <motion.div
               key="question"
@@ -337,7 +337,7 @@ export default function QuizPage() {
                 overflow: 'hidden',
               }}
             >
-              {/* ── Top bar ─────────────────────────────────────────────────── */}
+              {/* â”€â”€ Top bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
               <div
                 style={{
                   display: 'flex', alignItems: 'center', gap: 16,
@@ -398,7 +398,7 @@ export default function QuizPage() {
                 </div>
               </div>
 
-              {/* ── Question card area ──────────────────────────────────────── */}
+              {/* â”€â”€ Question card area â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
               <div
                 style={{
                   flex: 1, overflow: 'auto',
@@ -523,7 +523,7 @@ export default function QuizPage() {
                 </AnimatePresence>
               </div>
 
-              {/* ── Bottom nav ──────────────────────────────────────────────── */}
+              {/* â”€â”€ Bottom nav â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
               <div
                 style={{
                   padding: '16px 28px',
@@ -548,9 +548,9 @@ export default function QuizPage() {
             </motion.div>
           )}
 
-          {/* ══════════════════════════════════════════════════════════════════
+          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
               SCREEN: RESULT
-          ═══════════════════════════════════════════════════════════════════ */}
+          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
           {screen === 'result' && (
             <motion.div
               key="result"
@@ -624,7 +624,7 @@ export default function QuizPage() {
                       margin: '20px 0 6px', textAlign: 'center',
                     }}
                   >
-                    {pct >= 70 ? '¡Bien hecho!' : 'Sigue practicando'}
+                    {pct >= 70 ? 'Â¡Bien hecho!' : 'Sigue practicando'}
                   </motion.h2>
                   <motion.p
                     initial={{ opacity: 0 }}
@@ -708,7 +708,7 @@ export default function QuizPage() {
                                     fontFamily: 'var(--font-dm-sans)',
                                   }}
                                 >
-                                  Tu respuesta: <strong>{opElegida?.texto ?? '—'}</strong>
+                                  Tu respuesta: <strong>{opElegida?.texto ?? 'â€”'}</strong>
                                 </span>
                                 <span
                                   style={{
@@ -727,7 +727,7 @@ export default function QuizPage() {
                                   fontFamily: 'var(--font-dm-sans)',
                                 }}
                               >
-                                ✓ {opCorrecta?.texto}
+                                âœ“ {opCorrecta?.texto}
                               </span>
                             )}
                           </div>
@@ -761,11 +761,11 @@ export default function QuizPage() {
         </AnimatePresence>
       </div>
 
-      {/* ── Exit confirmation modal ─────────────────────────────────────────── */}
+      {/* â”€â”€ Exit confirmation modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <Modal
         open={exitModal}
         onClose={() => setExitModal(false)}
-        title="¿Salir del quiz?"
+        title="Â¿Salir del quiz?"
         maxWidth={400}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -786,7 +786,7 @@ export default function QuizPage() {
                 fontFamily: 'var(--font-dm-sans)', lineHeight: 1.6,
               }}
             >
-              Tu progreso actual se perderá. ¿Estás seguro de que quieres salir?
+              Tu progreso actual se perderÃ¡. Â¿EstÃ¡s seguro de que quieres salir?
             </p>
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
@@ -803,7 +803,7 @@ export default function QuizPage() {
   );
 }
 
-// ─── Style helpers ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Style helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const metaChip: React.CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 6,
   padding: '4px 12px',
@@ -820,3 +820,4 @@ const progressLabel: React.CSSProperties = {
   color: 'var(--text-muted)',
   fontFamily: 'var(--font-dm-sans)',
 };
+

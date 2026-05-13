@@ -88,10 +88,10 @@ const CARD = {
   boxShadow:            '0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
 };
 
-const pageV  = {
+/*const pageV  = {
   hidden:  { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
-};
+};*/
 const gridV  = { hidden: {}, visible: { transition: { staggerChildren: 0.08 } } };
 const cellV  = { hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35 } } };
 
@@ -197,7 +197,7 @@ export default function ClickstreamPage() {
 
   return (
     <motion.div
-      variants={pageV}
+     //variants={pageV}
       initial="hidden"
       animate="visible"
       style={{

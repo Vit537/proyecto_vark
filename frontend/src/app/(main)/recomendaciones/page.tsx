@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -14,7 +14,7 @@ import Button   from '@/components/ui/Button';
 import Modal    from '@/components/ui/Modal';
 import RadarChart from '@/components/ui/RadarChart';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type EstiloVark  = 'V' | 'A' | 'R' | 'K';
 type TipoRecurso = 'video' | 'documento' | 'audio' | 'ejercicio';
 
@@ -33,135 +33,135 @@ interface Recurso {
   razon:      string;
 }
 
-// ─── Mock: perfil del estudiante ─────────────────────────────────────────────
+// â”€â”€â”€ Mock: perfil del estudiante â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const PERFIL_VARK = { v: 82, a: 45, r: 60, k: 38 };
 const ESTILO_DOMINANTE: EstiloVark = 'V';
 
-// ─── Mock: recursos (12) ──────────────────────────────────────────────────────
+// â”€â”€â”€ Mock: recursos (12) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const MOCK_RECURSOS: Recurso[] = [
   {
     id: '1',
-    titulo: 'Introducción a Python – Variables y Tipos visualizados',
+    titulo: 'IntroducciÃ³n a Python â€“ Variables y Tipos visualizados',
     url: 'https://www.youtube.com/watch?v=kqtD5dpn9C8',
     urlCorta: 'youtube.com',
     descripcion: 'Video tutorial con animaciones que explica variables, tipos de datos y operadores en Python de forma visual e ilustrativa.',
-    tema: 'Python Básico', tipo: 'video', vark: 'V', dificultad: 1, rating: 5, afinidad: 95,
+    tema: 'Python BÃ¡sico', tipo: 'video', vark: 'V', dificultad: 1, rating: 5, afinidad: 95,
     razon: 'Tu perfil muestra una fuerte preferencia Visual (82%). Los recursos en video con animaciones son altamente efectivos para tu estilo de aprendizaje.',
   },
   {
     id: '2',
-    titulo: 'Visualgo – Estructuras de datos animadas',
+    titulo: 'Visualgo â€“ Estructuras de datos animadas',
     url: 'https://visualgo.net/en',
     urlCorta: 'visualgo.net',
-    descripcion: 'Herramienta interactiva que anima algoritmos de ordenamiento, árboles y grafos con control de velocidad y pasos detallados.',
+    descripcion: 'Herramienta interactiva que anima algoritmos de ordenamiento, Ã¡rboles y grafos con control de velocidad y pasos detallados.',
     tema: 'Algoritmos', tipo: 'video', vark: 'V', dificultad: 3, rating: 5, afinidad: 92,
     razon: 'Recurso altamente visual que permite ver el flujo de los algoritmos paso a paso, alineado con tu preferencia de aprendizaje visual.',
   },
   {
     id: '3',
-    titulo: 'Funciones en Python – Guía visual con diagramas',
+    titulo: 'Funciones en Python â€“ GuÃ­a visual con diagramas',
     url: 'https://www.youtube.com/watch?v=9Os0o3wzS_I',
     urlCorta: 'youtube.com',
-    descripcion: 'Video con diagramas de flujo que explica scope, parámetros, *args, **kwargs y retorno de valores.',
+    descripcion: 'Video con diagramas de flujo que explica scope, parÃ¡metros, *args, **kwargs y retorno de valores.',
     tema: 'Funciones', tipo: 'video', vark: 'V', dificultad: 2, rating: 4, afinidad: 90,
-    razon: 'Los diagramas de flujo y la presentación visual del scope hacen de este recurso una elección ideal para perfiles Visuales.',
+    razon: 'Los diagramas de flujo y la presentaciÃ³n visual del scope hacen de este recurso una elecciÃ³n ideal para perfiles Visuales.',
   },
   {
     id: '4',
-    titulo: 'Guía completa de cadenas en Python – Real Python',
+    titulo: 'GuÃ­a completa de cadenas en Python â€“ Real Python',
     url: 'https://realpython.com/python-strings/',
     urlCorta: 'realpython.com',
-    descripcion: 'Artículo estructurado con tablas, ejemplos de código y referencias cruzadas sobre métodos de cadenas, slicing y formateo.',
+    descripcion: 'ArtÃ­culo estructurado con tablas, ejemplos de cÃ³digo y referencias cruzadas sobre mÃ©todos de cadenas, slicing y formateo.',
     tema: 'Cadenas', tipo: 'documento', vark: 'R', dificultad: 2, rating: 4, afinidad: 68,
-    razon: 'Tu segundo estilo más fuerte es Lectura/Escritura (60%). Este artículo detallado se complementa bien con tu perfil mixto V+R.',
+    razon: 'Tu segundo estilo mÃ¡s fuerte es Lectura/Escritura (60%). Este artÃ­culo detallado se complementa bien con tu perfil mixto V+R.',
   },
   {
     id: '5',
-    titulo: 'Programación Orientada a Objetos en Python',
+    titulo: 'ProgramaciÃ³n Orientada a Objetos en Python',
     url: 'https://realpython.com/python3-object-oriented-programming/',
     urlCorta: 'realpython.com',
-    descripcion: 'Artículo extenso con diagramas de clases, ejemplos y ejercicios sobre POO: clases, herencia y polimorfismo.',
+    descripcion: 'ArtÃ­culo extenso con diagramas de clases, ejemplos y ejercicios sobre POO: clases, herencia y polimorfismo.',
     tema: 'POO', tipo: 'documento', vark: 'R', dificultad: 3, rating: 5, afinidad: 65,
-    razon: 'Combina tu preferencia por Lectura con contenido estructurado y diagramas que también estimulan el estilo Visual.',
+    razon: 'Combina tu preferencia por Lectura con contenido estructurado y diagramas que tambiÃ©n estimulan el estilo Visual.',
   },
   {
     id: '6',
-    titulo: 'Podcast: Fundamentos de algoritmos – CS50',
+    titulo: 'Podcast: Fundamentos de algoritmos â€“ CS50',
     url: 'https://podcast.example.com/cs50-algorithms',
     urlCorta: 'podcast.example.com',
-    descripcion: 'Serie de episodios de audio basados en CS50 de Harvard que narran recursividad, búsqueda binaria y ordenamiento.',
+    descripcion: 'Serie de episodios de audio basados en CS50 de Harvard que narran recursividad, bÃºsqueda binaria y ordenamiento.',
     tema: 'Algoritmos', tipo: 'audio', vark: 'A', dificultad: 2, rating: 4, afinidad: 52,
     razon: 'Aunque tu perfil Auditivo (45%) es secundario, este recurso puede complementar tu aprendizaje cuando estudias con la pantalla apagada.',
   },
   {
     id: '7',
-    titulo: 'Exercism – Ejercicios de Python con mentores',
+    titulo: 'Exercism â€“ Ejercicios de Python con mentores',
     url: 'https://exercism.org/tracks/python',
     urlCorta: 'exercism.org',
-    descripcion: 'Plataforma de ejercicios progresivos con validación automática y retroalimentación de mentores especializados.',
+    descripcion: 'Plataforma de ejercicios progresivos con validaciÃ³n automÃ¡tica y retroalimentaciÃ³n de mentores especializados.',
     tema: 'Estructuras', tipo: 'ejercicio', vark: 'K', dificultad: 2, rating: 5, afinidad: 48,
-    razon: 'Los ejercicios kinestésicos (38% en tu perfil) pueden reforzar lo que aprendes visualmente a través de la práctica activa.',
+    razon: 'Los ejercicios kinestÃ©sicos (38% en tu perfil) pueden reforzar lo que aprendes visualmente a travÃ©s de la prÃ¡ctica activa.',
   },
   {
     id: '8',
-    titulo: 'Python Tutor – Visualiza tu código en ejecución',
+    titulo: 'Python Tutor â€“ Visualiza tu cÃ³digo en ejecuciÃ³n',
     url: 'https://pythontutor.com/',
     urlCorta: 'pythontutor.com',
-    descripcion: 'Herramienta online que visualiza paso a paso la ejecución de código Python, mostrando el estado de variables y el call stack.',
-    tema: 'Python Básico', tipo: 'video', vark: 'V', dificultad: 1, rating: 5, afinidad: 94,
+    descripcion: 'Herramienta online que visualiza paso a paso la ejecuciÃ³n de cÃ³digo Python, mostrando el estado de variables y el call stack.',
+    tema: 'Python BÃ¡sico', tipo: 'video', vark: 'V', dificultad: 1, rating: 5, afinidad: 94,
     razon: 'Recurso 100% visual: permite ver el estado del programa en tiempo real. Ideal para perfiles Visuales como el tuyo.',
   },
   {
     id: '9',
-    titulo: 'Automate the Boring Stuff – Capítulo archivos',
+    titulo: 'Automate the Boring Stuff â€“ CapÃ­tulo archivos',
     url: 'https://automatetheboringstuff.com/2e/chapter9/',
     urlCorta: 'automatetheboringstuff.com',
-    descripcion: 'Capítulo gratuito con ejercicios guiados sobre lectura/escritura de archivos, pathlib, CSV y PDF en Python.',
-    tema: 'Python Básico', tipo: 'documento', vark: 'R', dificultad: 1, rating: 4, afinidad: 63,
-    razon: 'El estilo Lectura/Escritura complementa tu perfil V+R. Este libro online incluye ejemplos visuales y ejercicios prácticos.',
+    descripcion: 'CapÃ­tulo gratuito con ejercicios guiados sobre lectura/escritura de archivos, pathlib, CSV y PDF en Python.',
+    tema: 'Python BÃ¡sico', tipo: 'documento', vark: 'R', dificultad: 1, rating: 4, afinidad: 63,
+    razon: 'El estilo Lectura/Escritura complementa tu perfil V+R. Este libro online incluye ejemplos visuales y ejercicios prÃ¡cticos.',
   },
   {
     id: '10',
-    titulo: 'Árboles binarios – CS50 Shorts en video',
+    titulo: 'Ãrboles binarios â€“ CS50 Shorts en video',
     url: 'https://www.youtube.com/watch?v=mFptHjTT3l8',
     urlCorta: 'youtube.com',
-    descripcion: 'Video corto de CS50 que explica árboles binarios con animaciones minimalistas y diagramas claros.',
+    descripcion: 'Video corto de CS50 que explica Ã¡rboles binarios con animaciones minimalistas y diagramas claros.',
     tema: 'Estructuras', tipo: 'video', vark: 'V', dificultad: 3, rating: 4, afinidad: 88,
     razon: 'Las animaciones de CS50 Shorts son reconocidas por su claridad visual, perfectas para estudiantes con perfil Visual dominante.',
   },
   {
     id: '11',
-    titulo: 'Podcast: Recursividad con analogías del mundo real',
+    titulo: 'Podcast: Recursividad con analogÃ­as del mundo real',
     url: 'https://podcast.example.com/recursion',
     urlCorta: 'podcast.example.com',
-    descripcion: 'Episodio auditivo que explica la recursividad mediante analogías cotidianas, casos base y ejemplos de factorial y Fibonacci.',
+    descripcion: 'Episodio auditivo que explica la recursividad mediante analogÃ­as cotidianas, casos base y ejemplos de factorial y Fibonacci.',
     tema: 'Funciones', tipo: 'audio', vark: 'A', dificultad: 2, rating: 3, afinidad: 44,
-    razon: 'El componente auditivo puede ser útil para reforzar conceptos abstractos como la recursividad fuera del entorno visual habitual.',
+    razon: 'El componente auditivo puede ser Ãºtil para reforzar conceptos abstractos como la recursividad fuera del entorno visual habitual.',
   },
   {
     id: '12',
-    titulo: 'LeetCode – Retos de diccionarios y conjuntos',
+    titulo: 'LeetCode â€“ Retos de diccionarios y conjuntos',
     url: 'https://leetcode.com/tag/hash-table/',
     urlCorta: 'leetcode.com',
-    descripcion: 'Colección de problemas prácticos enfocados en el uso eficiente de diccionarios y sets con validación inmediata.',
+    descripcion: 'ColecciÃ³n de problemas prÃ¡cticos enfocados en el uso eficiente de diccionarios y sets con validaciÃ³n inmediata.',
     tema: 'Estructuras', tipo: 'ejercicio', vark: 'K', dificultad: 2, rating: 3, afinidad: 41,
-    razon: 'La práctica kinestésica en LeetCode complementa el conocimiento visual adquirido. Útil para consolidar con ejercicios reales.',
+    razon: 'La prÃ¡ctica kinestÃ©sica en LeetCode complementa el conocimiento visual adquirido. Ãštil para consolidar con ejercicios reales.',
   },
 ];
 
-// ─── Config ───────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const VARK_CFG = {
   V: { color: 'var(--vark-v)', bg: 'rgba(59,110,248,0.18)',  border: 'rgba(59,110,248,0.5)',  glow: '0 0 18px rgba(59,110,248,0.4)',  full: 'Visual'      },
   A: { color: 'var(--vark-a)', bg: 'rgba(167,139,250,0.18)', border: 'rgba(167,139,250,0.5)', glow: '0 0 18px rgba(167,139,250,0.4)', full: 'Auditivo'    },
   R: { color: 'var(--vark-r)', bg: 'rgba(0,212,255,0.18)',   border: 'rgba(0,212,255,0.5)',   glow: '0 0 18px rgba(0,212,255,0.4)',   full: 'Lectura'     },
-  K: { color: 'var(--vark-k)', bg: 'rgba(0,230,118,0.18)',   border: 'rgba(0,230,118,0.5)',   glow: '0 0 18px rgba(0,230,118,0.4)',   full: 'Kinestésico' },
+  K: { color: 'var(--vark-k)', bg: 'rgba(0,230,118,0.18)',   border: 'rgba(0,230,118,0.5)',   glow: '0 0 18px rgba(0,230,118,0.4)',   full: 'KinestÃ©sico' },
 } as const;
 
 const VARK_BADGE: Record<EstiloVark, 'vark-v' | 'vark-a' | 'vark-r' | 'vark-k'> = {
   V: 'vark-v', A: 'vark-a', R: 'vark-r', K: 'vark-k',
 };
 
-const DIF_LABEL: Record<1 | 2 | 3, string> = { 1: 'Fácil', 2: 'Intermedio', 3: 'Avanzado' };
+const DIF_LABEL: Record<1 | 2 | 3, string> = { 1: 'FÃ¡cil', 2: 'Intermedio', 3: 'Avanzado' };
 
 const TIPO_ICON: Record<TipoRecurso, React.ReactNode> = {
   video:     <Play      size={20} />,
@@ -170,9 +170,9 @@ const TIPO_ICON: Record<TipoRecurso, React.ReactNode> = {
   ejercicio: <Code2     size={20} />,
 };
 
-// ─── CU-13 helpers ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ CU-13 helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const TIPO_LABEL: Record<TipoRecurso, string> = {
-  video: 'Video', documento: 'Documento', audio: 'Audio', ejercicio: 'Ejercicio práctico',
+  video: 'Video', documento: 'Documento', audio: 'Audio', ejercicio: 'Ejercicio prÃ¡ctico',
 };
 
 function getResourceVarkProfile(rec: Recurso): { v: number; a: number; r: number; k: number } {
@@ -191,7 +191,7 @@ function getRazones(rec: Recurso): string[] {
   return [
     `Tu estilo ${VARK_CFG[rec.vark].full} (${pctEstilo}%) coincide con el formato ${TIPO_LABEL[rec.tipo]}`,
     `El nivel ${DIF_LABEL[rec.dificultad]} es apropiado para tu progreso actual en ${rec.tema}`,
-    `El tema "${rec.tema}" está dentro de tu plan de aprendizaje personalizado`,
+    `El tema "${rec.tema}" estÃ¡ dentro de tu plan de aprendizaje personalizado`,
   ];
 }
 
@@ -199,21 +199,21 @@ function getValoracion(rec: Recurso): number {
   return Math.min(96, Math.round(rec.afinidad * 0.82 + 12));
 }
 
-// ─── CU-14 data ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ CU-14 data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const FEEDBACK_TAGS = [
   'Muy claro', 'Bien explicado', 'Muy largo',
-  'Difícil de entender', 'Excelente calidad',
+  'DifÃ­cil de entender', 'Excelente calidad',
 ];
 const MAX_COMENTARIO = 300;
 
 type Coincidencia = 'si' | 'mazo' | 'no';
 const COINCIDENCIA_CFG: Record<Coincidencia, { label: string; color: string; bg: string; border: string }> = {
-  si:   { label: 'Sí',          color: 'var(--success)', bg: 'rgba(0,230,118,0.12)', border: 'rgba(0,230,118,0.4)' },
-  mazo: { label: 'Más o menos', color: 'var(--warning)', bg: 'rgba(255,215,64,0.1)', border: 'rgba(255,215,64,0.4)' },
+  si:   { label: 'SÃ­',          color: 'var(--success)', bg: 'rgba(0,230,118,0.12)', border: 'rgba(0,230,118,0.4)' },
+  mazo: { label: 'MÃ¡s o menos', color: 'var(--warning)', bg: 'rgba(255,215,64,0.1)', border: 'rgba(255,215,64,0.4)' },
   no:   { label: 'No',          color: 'var(--danger)',  bg: 'rgba(255,82,82,0.1)',  border: 'rgba(255,82,82,0.4)'  },
 };
 
-// ─── Stagger variants ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Stagger variants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const containerV = {
   hidden: {},
   show:   { transition: { staggerChildren: 0.07 } },
@@ -223,7 +223,7 @@ const cardV = {
   show:   { opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.4, 0, 0.2, 1] as [number,number,number,number] } },
 };
 
-// ─── Afinidad bar ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Afinidad bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function AfinidadBar({ pct, color }: { pct: number; color: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -254,7 +254,7 @@ function AfinidadBar({ pct, color }: { pct: number; color: string }) {
   );
 }
 
-// ─── Stars ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Stars â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function Stars({ rating }: { rating: number }) {
   return (
     <div style={{ display: 'flex', gap: 2 }}>
@@ -269,7 +269,7 @@ function Stars({ rating }: { rating: number }) {
   );
 }
 
-// ─── CU-13: Section label + Justification modal content ──────────────────────
+// â”€â”€â”€ CU-13: Section label + Justification modal content â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const radarLabelStyle: React.CSSProperties = {
   fontFamily: 'var(--font-dm-sans)', fontSize: '0.7rem',
   fontWeight: 700, color: 'var(--text-muted)',
@@ -320,7 +320,7 @@ function JustContent({ rec, onClose }: { rec: Recurso; onClose: () => void }) {
           {rec.titulo}
         </p>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          <Badge variant={VARK_BADGE[rec.vark]}>{rec.vark} — {cfg.full}</Badge>
+          <Badge variant={VARK_BADGE[rec.vark]}>{rec.vark} â€” {cfg.full}</Badge>
           <Badge variant="ghost">{DIF_LABEL[rec.dificultad]}</Badge>
           <Badge variant="ghost">{TIPO_LABEL[rec.tipo]}</Badge>
         </div>
@@ -401,7 +401,7 @@ function JustContent({ rec, onClose }: { rec: Recurso; onClose: () => void }) {
               <span style={{ fontWeight: 800, color: 'var(--success)' }}>
                 {valoracion}%
               </span>
-              {' '}de estudiantes con tu perfil valoró positivamente este recurso
+              {' '}de estudiantes con tu perfil valorÃ³ positivamente este recurso
             </p>
           </div>
           <div>
@@ -463,7 +463,7 @@ function JustContent({ rec, onClose }: { rec: Recurso; onClose: () => void }) {
   );
 }
 
-// ─── CU-14: Feedback Panel ──────────────────────────────────────────────────
+// â”€â”€â”€ CU-14: Feedback Panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function FeedbackPanel({ rec, onClose }: { rec: Recurso; onClose: () => void }) {
   const [stars,        setStars]        = useState(0);
   const [hoverStar,    setHoverStar]    = useState(0);
@@ -475,7 +475,11 @@ function FeedbackPanel({ rec, onClose }: { rec: Recurso; onClose: () => void }) 
 
   const toggleTag = (tag: string) => setSelTags((prev) => {
     const next = new Set(prev);
-    next.has(tag) ? next.delete(tag) : next.add(tag);
+    if (next.has(tag)) {
+      next.delete(tag);
+    } else {
+      next.add(tag);
+    }
     return next;
   });
 
@@ -537,7 +541,7 @@ function FeedbackPanel({ rec, onClose }: { rec: Recurso; onClose: () => void }) 
                 color: 'var(--text-primary)',
               }}
             >
-              ¿Qué te pareció este recurso?
+              Â¿QuÃ© te pareciÃ³ este recurso?
             </h2>
             <p
               style={{
@@ -569,7 +573,7 @@ function FeedbackPanel({ rec, onClose }: { rec: Recurso; onClose: () => void }) 
         <div style={{ overflowY: 'auto', flex: 1, padding: '20px 22px' }}>
           <AnimatePresence mode="wait">
             {enviado ? (
-              /* ── Success state ── */
+              /* â”€â”€ Success state â”€â”€ */
               <motion.div
                 key="success"
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -601,7 +605,7 @@ function FeedbackPanel({ rec, onClose }: { rec: Recurso; onClose: () => void }) 
                     fontWeight: 800, fontSize: '1.1rem',
                     color: 'var(--text-primary)',
                   }}>
-                    ¡Gracias por tu valoración!
+                    Â¡Gracias por tu valoraciÃ³n!
                   </p>
                   <p style={{
                     margin: 0,
@@ -622,7 +626,7 @@ function FeedbackPanel({ rec, onClose }: { rec: Recurso; onClose: () => void }) 
                 </div>
               </motion.div>
             ) : (
-              /* ── Form state ── */
+              /* â”€â”€ Form state â”€â”€ */
               <motion.div
                 key="form"
                 initial={{ opacity: 0 }}
@@ -632,7 +636,7 @@ function FeedbackPanel({ rec, onClose }: { rec: Recurso; onClose: () => void }) 
               >
                 {/* Stars */}
                 <div>
-                  <SectionLabel label="Calificación" />
+                  <SectionLabel label="CalificaciÃ³n" />
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     {Array.from({ length: 5 }, (_, i) => {
                       const idx      = i + 1;
@@ -680,7 +684,7 @@ function FeedbackPanel({ rec, onClose }: { rec: Recurso; onClose: () => void }) 
 
                 {/* Coincidencia */}
                 <div>
-                  <SectionLabel label="¿Este recurso coincide con tu estilo de aprendizaje?" />
+                  <SectionLabel label="Â¿Este recurso coincide con tu estilo de aprendizaje?" />
                   <div style={{ display: 'flex', gap: 8 }}>
                     {(['si', 'mazo', 'no'] as Coincidencia[]).map((c) => {
                       const cfg = COINCIDENCIA_CFG[c];
@@ -710,7 +714,7 @@ function FeedbackPanel({ rec, onClose }: { rec: Recurso; onClose: () => void }) 
 
                 {/* Tags */}
                 <div>
-                  <SectionLabel label="Feedback rápido" />
+                  <SectionLabel label="Feedback rÃ¡pido" />
                   <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
                     {FEEDBACK_TAGS.map((tag) => {
                       const sel = selTags.has(tag);
@@ -738,12 +742,12 @@ function FeedbackPanel({ rec, onClose }: { rec: Recurso; onClose: () => void }) 
 
                 {/* Comentario */}
                 <div>
-                  <SectionLabel label="Cuéntanos más (opcional)" />
+                  <SectionLabel label="CuÃ©ntanos mÃ¡s (opcional)" />
                   <div style={{ position: 'relative' }}>
                     <textarea
                       value={comentario}
                       onChange={(e) => setComentario(e.target.value.slice(0, MAX_COMENTARIO))}
-                      placeholder="¿Qué fue lo que más te gustó? ¿Algo que mejorarías?"
+                      placeholder="Â¿QuÃ© fue lo que mÃ¡s te gustÃ³? Â¿Algo que mejorarÃ­as?"
                       rows={3}
                       style={{
                         width: '100%', resize: 'none', boxSizing: 'border-box',
@@ -779,7 +783,7 @@ function FeedbackPanel({ rec, onClose }: { rec: Recurso; onClose: () => void }) 
                   style={{ justifyContent: 'center', fontSize: '0.9rem', marginBottom: 4 }}
                 >
                   <Send size={14} />
-                  Enviar valoración
+                  Enviar valoraciÃ³n
                 </Button>
               </motion.div>
             )}
@@ -790,7 +794,7 @@ function FeedbackPanel({ rec, onClose }: { rec: Recurso; onClose: () => void }) 
   );
 }
 
-// ─── Resource card ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Resource card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function RecursoCard({
   recurso: r, saved, onSave, onVer, onHover, onJustificar, onValorar,
 }: {
@@ -841,7 +845,7 @@ function RecursoCard({
         )}
         {/* VARK badge */}
         <div style={{ position: 'absolute', top: 9, left: 9 }}>
-          <Badge variant={VARK_BADGE[r.vark]} size="sm">{r.vark} — {VARK_CFG[r.vark].full}</Badge>
+          <Badge variant={VARK_BADGE[r.vark]} size="sm">{r.vark} â€” {VARK_CFG[r.vark].full}</Badge>
         </div>
         {/* Save button */}
         <motion.button
@@ -880,7 +884,7 @@ function RecursoCard({
           <Stars rating={r.rating} />
         </div>
 
-        {/* Título */}
+        {/* TÃ­tulo */}
         <p
           style={{
             margin: 0,
@@ -954,7 +958,7 @@ function RecursoCard({
           Valorar este recurso
         </Button>
 
-        {/* CU-13: Por qué se recomienda */}
+        {/* CU-13: Por quÃ© se recomienda */}
         <motion.button
           type="button"
           onClick={(e) => { e.stopPropagation(); onJustificar(); }}
@@ -968,14 +972,14 @@ function RecursoCard({
           }}
         >
           <HelpCircle size={11} />
-          ¿Por qué se recomienda esto?
+          Â¿Por quÃ© se recomienda esto?
         </motion.button>
       </div>
     </motion.div>
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function RecomendacionesPage() {
   const [varkActive, setVarkActive]   = useState<Set<EstiloVark>>(new Set([ESTILO_DOMINANTE]));
   const [saved,      setSaved]        = useState<Set<string>>(new Set());
@@ -990,13 +994,21 @@ export default function RecomendacionesPage() {
 
   const toggleVark = (v: EstiloVark) => setVarkActive((prev) => {
     const next = new Set(prev);
-    next.has(v) ? next.delete(v) : next.add(v);
+    if (next.has(v)) {
+      next.delete(v);
+    } else {
+      next.add(v);
+    }
     return next;
   });
 
   const toggleSave = (id: string) => setSaved((prev) => {
     const next = new Set(prev);
-    next.has(id) ? next.delete(id) : next.add(id);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
     return next;
   });
 
@@ -1025,9 +1037,9 @@ export default function RecomendacionesPage() {
         overflow: 'hidden',
       }}
     >
-      {/* ══════════════════════════════════════════════════════════════
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           MAIN CONTENT
-      ═══════════════════════════════════════════════════════════════ */}
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       <div
         style={{
           flex: 1, overflowY: 'auto',
@@ -1067,7 +1079,7 @@ export default function RecomendacionesPage() {
                 <span style={{ color: dominanteCfg.color, fontWeight: 700 }}>
                   {dominanteCfg.full}
                 </span>
-                {' '}— ordenados por compatibilidad con tu estilo
+                {' '}â€” ordenados por compatibilidad con tu estilo
               </p>
             </div>
 
@@ -1096,7 +1108,7 @@ export default function RecomendacionesPage() {
           </div>
         </motion.div>
 
-        {/* ── VARK filter row ─────────────────────────────────────────── */}
+        {/* â”€â”€ VARK filter row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1176,7 +1188,7 @@ export default function RecomendacionesPage() {
           </span>
         </motion.div>
 
-        {/* ── Grid ───────────────────────────────────────────────────── */}
+        {/* â”€â”€ Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <AnimatePresence mode="popLayout">
           {filtered.length > 0 ? (
             <motion.div
@@ -1249,9 +1261,9 @@ export default function RecomendacionesPage() {
         </AnimatePresence>
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           SIDE PANEL (slide from right)
-      ═══════════════════════════════════════════════════════════════ */}
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       <AnimatePresence>
         {panelOpen && (
           <motion.aside
@@ -1336,7 +1348,7 @@ export default function RecomendacionesPage() {
                     transition={{ duration: 0.22 }}
                     style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
                   >
-                    <p style={panelLabelStyle}>¿Por qué te recomendamos esto?</p>
+                    <p style={panelLabelStyle}>Â¿Por quÃ© te recomendamos esto?</p>
 
                     {/* Resource mini title */}
                     <div
@@ -1398,7 +1410,7 @@ export default function RecomendacionesPage() {
                             textTransform: 'uppercase', letterSpacing: '0.07em',
                           }}
                         >
-                          Análisis de compatibilidad
+                          AnÃ¡lisis de compatibilidad
                         </span>
                       </div>
                       <p
@@ -1432,7 +1444,7 @@ export default function RecomendacionesPage() {
                         color: 'var(--text-muted)', lineHeight: 1.55,
                       }}
                     >
-                      Pasa el cursor sobre una card para ver por qué te recomendamos ese recurso
+                      Pasa el cursor sobre una card para ver por quÃ© te recomendamos ese recurso
                     </p>
                   </motion.div>
                 )}
@@ -1442,9 +1454,9 @@ export default function RecomendacionesPage() {
         )}
       </AnimatePresence>
 
-      {/* ══════════════════════════════════════════════════════════════
-          MODAL — Ver recurso
-      ═══════════════════════════════════════════════════════════════ */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+          MODAL â€” Ver recurso
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -1455,7 +1467,7 @@ export default function RecomendacionesPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             {/* Badges row */}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <Badge variant={VARK_BADGE[selected.vark]}>{selected.vark} — {VARK_CFG[selected.vark].full}</Badge>
+              <Badge variant={VARK_BADGE[selected.vark]}>{selected.vark} â€” {VARK_CFG[selected.vark].full}</Badge>
               <Badge variant="ghost">{DIF_LABEL[selected.dificultad]}</Badge>
               <Badge variant="ghost">{selected.tipo}</Badge>
               <Badge variant="info">{selected.afinidad}% compatible</Badge>
@@ -1505,7 +1517,7 @@ export default function RecomendacionesPage() {
                     textTransform: 'uppercase', letterSpacing: '0.07em',
                   }}
                 >
-                  ¿Por qué te recomendamos esto?
+                  Â¿Por quÃ© te recomendamos esto?
                 </span>
               </div>
               <p
@@ -1555,9 +1567,9 @@ export default function RecomendacionesPage() {
         )}
       </Modal>
 
-      {/* ══════════════════════════════════════════════════════════════
-          CU-14 — Panel de valoración (bottom sheet)
-      ═══════════════════════════════════════════════════════════════ */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+          CU-14 â€” Panel de valoraciÃ³n (bottom sheet)
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       <AnimatePresence>
         {valorOpen && valorRecurso && (
           <FeedbackPanel
@@ -1568,13 +1580,13 @@ export default function RecomendacionesPage() {
         )}
       </AnimatePresence>
 
-      {/* ══════════════════════════════════════════════════════════════
-          MODAL CU-13 — Justificación de recomendación
-      ═══════════════════════════════════════════════════════════════ */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+          MODAL CU-13 â€” JustificaciÃ³n de recomendaciÃ³n
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       <Modal
         open={justOpen}
         onClose={() => setJustOpen(false)}
-        title="¿Por qué se recomienda esto?"
+        title="Â¿Por quÃ© se recomienda esto?"
         maxWidth={680}
       >
         {justRecurso && (
@@ -1585,10 +1597,11 @@ export default function RecomendacionesPage() {
   );
 }
 
-// ─── Style helpers ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Style helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const panelLabelStyle: React.CSSProperties = {
   margin: '0 0 12px',
   fontFamily: 'var(--font-dm-sans)', fontSize: '0.7rem',
   fontWeight: 700, color: 'var(--text-muted)',
   textTransform: 'uppercase', letterSpacing: '0.09em',
 };
+

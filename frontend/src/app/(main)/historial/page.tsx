@@ -107,10 +107,10 @@ const CARD: React.CSSProperties = {
   boxShadow: '0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
 };
 
-const PAGE_VARIANTS = {
+/*const PAGE_VARIANTS = {
   hidden:  { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
-};
+};*/
 
 const STAGGER = {
   container: { hidden: {}, visible: { transition: { staggerChildren: 0.07 } } },
@@ -325,7 +325,7 @@ export default function HistorialPage() {
 
   return (
     <motion.div
-      variants={PAGE_VARIANTS}
+      // variants={PAGE_VARIANTS}
       initial="hidden"
       animate="visible"
       style={{ fontFamily: 'var(--font-dm-sans), DM Sans, sans-serif' }}
