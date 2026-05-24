@@ -7,6 +7,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import { login as loginService } from '@/lib/api/accounts';
+import { setTokens } from '@/lib/api/client';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface FormState {
@@ -55,6 +57,9 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
 };
 
+
+// ─── Page Component ───────────────────────────────────────────────────────────
+
 // ─── Page Component ───────────────────────────────────────────────────────────
 export default function LoginPage() {
   const router = useRouter();
@@ -101,35 +106,21 @@ export default function LoginPage() {
     setErrors({});
 
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: form.email, password: form.password }),
-        credentials: 'include',
-      });
+      const data = await loginService({ email: form.email, password: form.password });
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        if (res.status === 401) {
-          setErrors({ server: 'Credenciales incorrectas. Verifica tu correo y contraseña.' });
-        } else {
-          setErrors({
-            server: data?.detail ?? data?.message ?? 'Error del servidor. Intenta de nuevo.',
-          });
-        }
-        return;
-      }
+      setTokens(data.access, data.refresh);
 
-      const data = await res.json();
-      const role: string = data?.user?.role ?? data?.role ?? 'estudiante';
-
-      if (role === 'admin') {
+      const role = data.usuario.rol;
+      if (role === 'administrador') {
         router.push('/admin/configuracion');
+      } else if (!data.vark_completado && role === 'estudiante') {
+        router.push('/test-vark');
       } else {
         router.push('/dashboard');
       }
-    } catch {
-      setErrors({ server: 'No se pudo conectar con el servidor. Revisa tu conexión.' });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error del servidor. Intenta de nuevo.';
+      setErrors({ server: message });
     } finally {
       setLoading(false);
     }

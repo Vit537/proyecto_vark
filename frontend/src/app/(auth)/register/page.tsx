@@ -7,6 +7,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { User, Mail, Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import { registro as registroService } from '@/lib/api/accounts';
+import { login as loginService } from '@/lib/api/accounts';
+import { setTokens } from '@/lib/api/client';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type Role = 'estudiante' | 'docente' | '';
@@ -205,22 +208,26 @@ export default function RegisterPage() {
     setErrors((prev) => ({ ...prev, server: undefined }));
 
     try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.name.trim(),
-          email: form.email.trim().toLowerCase(),
-          password: form.password,
-          role: form.role,
-          teacher_code: form.role === 'docente' ? form.teacherCode.trim() : undefined,
-        }),
+      // Split name into nombre + apellido (first word / rest)
+      const nameTrimmed = form.name.trim();
+      const spaceIdx = nameTrimmed.indexOf(' ');
+      const nombre = spaceIdx === -1 ? nameTrimmed : nameTrimmed.slice(0, spaceIdx);
+      const apellido = spaceIdx === -1 ? '' : nameTrimmed.slice(spaceIdx + 1);
+
+      await registroService({
+        email: form.email.trim().toLowerCase(),
+        nombre,
+        apellido,
+        rol: form.role as 'estudiante' | 'docente',
+        password: form.password,
       });
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.detail || 'Error al registrar. Intenta de nuevo.');
-      }
+      // Auto-login after successful registration
+      const loginData = await loginService({
+        email: form.email.trim().toLowerCase(),
+        password: form.password,
+      });
+      setTokens(loginData.access, loginData.refresh);
 
       router.push('/test-vark');
     } catch (err: unknown) {

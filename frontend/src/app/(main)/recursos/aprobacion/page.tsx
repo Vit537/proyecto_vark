@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bot, User, ExternalLink, Check, X, AlertTriangle,
@@ -9,6 +9,8 @@ import {
 import Button from '@/components/ui/Button';
 import Badge  from '@/components/ui/Badge';
 import Modal  from '@/components/ui/Modal';
+import { listarSugerencias, aprobarSugerencia, rechazarSugerencia } from '@/lib/api/contenido';
+import type { SugerenciaIA } from '@/lib/api/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type EstiloVark  = 'V' | 'A' | 'R' | 'K';
@@ -306,15 +308,45 @@ function RevisionCard({
   );
 }
 
+// ─── Helpers API → UI ─────────────────────────────────────────────────────────
+const NIVEL_TO_DIF: Record<string, 1 | 2 | 3> = {
+  basico: 1, intermedio: 2, avanzado: 3,
+};
+
+function toRecursoRevision(s: SugerenciaIA): RecursoRevision {
+  const nivelLower = s.nivel_complejidad.toLowerCase();
+  return {
+    id:          String(s.id),
+    titulo:      s.titulo,
+    url:         s.url,
+    urlCorta:    s.url.replace(/^https?:\/\//, '').slice(0, 30) + (s.url.length > 36 ? '…' : ''),
+    descripcion: s.descripcion,
+    vark:        s.categoria_vark,
+    dificultad:  NIVEL_TO_DIF[nivelLower] ?? 1,
+    tema:        s.tema_nombre,
+    origen:      s.revisado_por ? 'Manual' : 'IA',
+    autor:       s.revisado_por_email ?? 'Sistema IA',
+    hace:        s.fecha_sugerencia
+      ? new Date(s.fecha_sugerencia).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
+      : '',
+    estado:      s.estado === 'pendiente' ? 'Pendiente'
+                 : s.estado === 'aprobado' ? 'Aprobado'
+                 : 'Rechazado',
+    historial:   [],
+  };
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function AprobacionPage() {
-  const [recursos,    setRecursos]    = useState<RecursoRevision[]>(MOCK);
+  const [recursos,    setRecursos]    = useState<RecursoRevision[]>([]);
   const [tab,         setTab]         = useState<TabId>('Pendiente');
   const [selectedId,  setSelectedId]  = useState<string | null>(null);
   const [rechazando,  setRechazando]  = useState(false);
   const [motivo,      setMotivo]      = useState('');
   const [motivoErr,   setMotivoErr]   = useState('');
   const [actionId,    setActionId]    = useState<string | null>(null);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState<string | null>(null);
 
   // Metadatos editables inline del recurso seleccionado
   const [editVark,  setEditVark]  = useState<EstiloVark>('V');
@@ -337,6 +369,28 @@ export default function AprobacionPage() {
     [recursos, selectedId],
   );
 
+  // ── Cargar datos al montar ─────────────────────────────────────────────────
+  useEffect(() => {
+    let mounted = true;
+    // Cargamos todas las sugerencias (todos los estados)
+    Promise.all([
+      listarSugerencias('pendiente'),
+      listarSugerencias('aprobado'),
+      listarSugerencias('rechazado'),
+    ])
+      .then(([pend, apro, rech]) => {
+        if (!mounted) return;
+        setRecursos([
+          ...pend.map(toRecursoRevision),
+          ...apro.map(toRecursoRevision),
+          ...rech.map(toRecursoRevision),
+        ]);
+      })
+      .catch((err: Error) => { if (mounted) setError(err.message); })
+      .finally(() => { if (mounted) setLoading(false); });
+    return () => { mounted = false; };
+  }, []);
+
   // Sync editable fields when selection changes
   const handleSelect = (r: RecursoRevision) => {
     setSelectedId(r.id === selectedId ? null : r.id);
@@ -348,41 +402,30 @@ export default function AprobacionPage() {
     setEditTema(r.tema);
   };
 
-  const applyAction = (id: string, nuevoEstado: 'Aprobado' | 'Rechazado' | 'Corrección') => {
+  const applyAction = async (id: string, nuevoEstado: 'Aprobado' | 'Rechazado') => {
     setActionId(id);
-    setTimeout(() => {
+    try {
+      const pk = Number(id);
+      if (nuevoEstado === 'Aprobado') {
+        await aprobarSugerencia(pk);
+      } else {
+        await rechazarSugerencia(pk);
+      }
       setRecursos((prev) =>
         prev.map((r) =>
           r.id === id
-            ? {
-                ...r,
-                estado:     nuevoEstado,
-                motivo:     nuevoEstado === 'Rechazado' ? motivo : r.motivo,
-                vark:       editVark,
-                dificultad: editDif,
-                tema:       editTema,
-                historial: [
-                  ...r.historial,
-                  {
-                    fecha:   '10 may 2026',
-                    usuario: 'Docente',
-                    accion:
-                      nuevoEstado === 'Aprobado'
-                        ? 'Aprobado y publicado en repositorio.'
-                        : nuevoEstado === 'Rechazado'
-                        ? `Rechazado. Motivo: ${motivo || 'Sin especificar.'}`
-                        : 'Corrección solicitada.',
-                  },
-                ],
-              }
+            ? { ...r, estado: nuevoEstado, vark: editVark, dificultad: editDif, tema: editTema }
             : r,
         ),
       );
       setSelectedId(null);
       setRechazando(false);
       setMotivo('');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al actualizar sugerencia');
+    } finally {
       setActionId(null);
-    }, 600);
+    }
   };
 
   const handleRechazar = () => {
@@ -391,6 +434,14 @@ export default function AprobacionPage() {
   };
 
   // ─── Render ────────────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontFamily: 'var(--font-dm-sans)' }}>
+        Cargando sugerencias…
+      </div>
+    );
+  }
+
   return (
     <div
       style={{
@@ -400,6 +451,11 @@ export default function AprobacionPage() {
         overflow: 'hidden',
       }}
     >
+      {error && (
+        <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 50, background: 'rgba(255,82,82,0.12)', border: '1px solid rgba(255,82,82,0.4)', borderRadius: 8, padding: '8px 16px', fontFamily: 'var(--font-dm-sans)', fontSize: '0.82rem', color: 'var(--danger)' }}>
+          {error}
+        </div>
+      )}
       {/* ════════════════════════════════════════════════════════════════════
           LEFT — 60%
       ═══════════════════════════════════════════════════════════════════════ */}
@@ -884,7 +940,13 @@ export default function AprobacionPage() {
                     <Button
                       variant="ghost"
                       disabled={actionId !== null}
-                      onClick={() => applyAction(selected.id, 'Corrección')}
+                      onClick={() => {
+                        // "Corrección" no tiene endpoint en el backend; marcamos localmente
+                        setRecursos((prev) =>
+                          prev.map((r) => r.id === selected.id ? { ...r, estado: 'Corrección' as EstadoRec } : r),
+                        );
+                        setSelectedId(null);
+                      }}
                       style={{
                         width: '100%', justifyContent: 'center',
                         border: '1px solid rgba(255,215,64,0.3)',

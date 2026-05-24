@@ -28,9 +28,11 @@ LOGGING = {
         'console': {'class': 'logging.StreamHandler'},
     },
     'loggers': {
-        'django.db.backends': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-        },
+        # 'django.db.backends': {
+        #     'handlers': ['console'],
+        #     'level': 'DEBUG',
+        # },
+        
+        # podemos activar el logging de Django para ver las consultas SQL en desarrollo, pero de momento lo dejamos comentado para no saturar la consola. Si quieres activarlo, simplemente descomenta el bloque correspondiente.
     },
 }

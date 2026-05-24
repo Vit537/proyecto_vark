@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play, FileText, Headphones, Code2,
@@ -13,6 +13,9 @@ import Badge    from '@/components/ui/Badge';
 import Button   from '@/components/ui/Button';
 import Modal    from '@/components/ui/Modal';
 import RadarChart from '@/components/ui/RadarChart';
+import { misRecomendaciones, marcarRecomendacionVista } from '@/lib/api/recomendacion';
+import { perfilVARK as fetchPerfilVARK } from '@/lib/api/accounts';
+import type { Recomendacion as RecomendacionAPI } from '@/lib/api/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type EstiloVark  = 'V' | 'A' | 'R' | 'K';
@@ -31,6 +34,34 @@ interface Recurso {
   rating:     number;
   afinidad:   number; // 0-100
   razon:      string;
+}
+
+// ─── Helpers API → UI ─────────────────────────────────────────────────────────
+const TIPO_MAP: Record<string, TipoRecurso> = {
+  video:    'video',
+  articulo: 'documento',
+  audio:    'audio',
+  ejercicio:'ejercicio',
+};
+const NIVEL_TO_DIF: Record<string, 1 | 2 | 3> = {
+  basico: 1, intermedio: 2, avanzado: 3,
+};
+
+function toRecurso(r: RecomendacionAPI): Recurso {
+  return {
+    id:          String(r.id),
+    titulo:      r.recurso_titulo,
+    url:         r.recurso_url,
+    urlCorta:    r.recurso_url.replace(/^https?:\/\//, '').split('/')[0],
+    descripcion: r.justificacion,
+    tema:        r.tema_nombre,
+    tipo:        TIPO_MAP[r.recurso_tipo] ?? 'documento',
+    vark:        r.recurso_categoria_vark,
+    dificultad:  NIVEL_TO_DIF[r.recurso_nivel] ?? 1,
+    rating:      Math.round(r.puntuacion * 5),
+    afinidad:    Math.round(r.puntuacion * 100),
+    razon:       r.justificacion,
+  };
 }
 
 // ─── Mock: perfil del estudiante ─────────────────────────────────────────────
@@ -185,9 +216,9 @@ function getResourceVarkProfile(rec: Recurso): { v: number; a: number; r: number
   return base[rec.tipo];
 }
 
-function getRazones(rec: Recurso): string[] {
+function getRazones(rec: Recurso, perfilVark: { v: number; a: number; r: number; k: number }): string[] {
   const varkLower = rec.vark.toLowerCase() as 'v' | 'a' | 'r' | 'k';
-  const pctEstilo = PERFIL_VARK[varkLower];
+  const pctEstilo = perfilVark[varkLower];
   return [
     `Tu estilo ${VARK_CFG[rec.vark].full} (${pctEstilo}%) coincide con el formato ${TIPO_LABEL[rec.tipo]}`,
     `El nivel ${DIF_LABEL[rec.dificultad]} es apropiado para tu progreso actual en ${rec.tema}`,
@@ -292,10 +323,10 @@ function SectionLabel({ label }: { label: string }) {
   );
 }
 
-function JustContent({ rec, onClose }: { rec: Recurso; onClose: () => void }) {
+function JustContent({ rec, onClose, perfilVark }: { rec: Recurso; onClose: () => void; perfilVark: { v: number; a: number; r: number; k: number } }) {
   const cfg        = VARK_CFG[rec.vark];
   const recProfile = getResourceVarkProfile(rec);
-  const razones    = getRazones(rec);
+  const razones    = getRazones(rec, perfilVark);
   const valoracion = getValoracion(rec);
 
   return (
@@ -332,7 +363,7 @@ function JustContent({ rec, onClose }: { rec: Recurso; onClose: () => void }) {
         <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
             <span style={radarLabelStyle}>Tu perfil</span>
-            <RadarChart data={PERFIL_VARK} size={160} />
+            <RadarChart data={perfilVark} size={160} />
           </div>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
             <span style={radarLabelStyle}>Este recurso</span>
@@ -987,6 +1018,35 @@ export default function RecomendacionesPage() {
   const [justRecurso,  setJustRecurso]  = useState<Recurso | null>(null);
   const [valorOpen,    setValorOpen]   = useState(false);
   const [valorRecurso, setValorRecurso] = useState<Recurso | null>(null);
+  // API state
+  const [recursos,   setRecursos]     = useState<Recurso[]>(MOCK_RECURSOS);
+  const [perfilVark, setPerfilVark]   = useState(PERFIL_VARK);
+  const [estiloDom,  setEstiloDom]    = useState<EstiloVark>(ESTILO_DOMINANTE);
+
+  // CU-13: Cargar historial de recomendaciones + perfil al montar
+  useEffect(() => {
+    let mounted = true;
+    Promise.all([
+      misRecomendaciones(),
+      fetchPerfilVARK(),
+    ])
+      .then(([recs, perfil]) => {
+        if (!mounted) return;
+        if (recs.length > 0) {
+          setRecursos(recs.map(toRecurso));
+        }
+        const v = { v: perfil.puntaje_visual, a: perfil.puntaje_auditivo, r: perfil.puntaje_lectura, k: perfil.puntaje_kinestesico };
+        setPerfilVark(v);
+        const dom = perfil.estilo_dominante;
+        setEstiloDom(dom);
+        setVarkActive(new Set([dom]));
+      })
+      .catch(() => {
+        // Si falla, mantenemos los valores mock/fallback
+      });
+    return () => { mounted = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toggleVark = (v: EstiloVark) => setVarkActive((prev) => {
     const next = new Set(prev);
@@ -1006,15 +1066,15 @@ export default function RecomendacionesPage() {
 
   const filtered = useMemo(
     () =>
-      MOCK_RECURSOS
+      recursos
         .filter((r) => varkActive.size === 0 || varkActive.has(r.vark))
         .sort((a, b) => b.afinidad - a.afinidad),
-    [varkActive],
+    [varkActive, recursos],
   );
 
   const panelRecurso = hovered ?? selected;
 
-  const dominanteCfg = VARK_CFG[ESTILO_DOMINANTE];
+  const dominanteCfg = VARK_CFG[estiloDom];
 
   return (
     <div
@@ -1232,7 +1292,7 @@ export default function RecomendacionesPage() {
               </p>
               <button
                 type="button"
-                onClick={() => setVarkActive(new Set([ESTILO_DOMINANTE]))}
+                onClick={() => setVarkActive(new Set([estiloDom]))}
                 style={{
                   padding: '8px 18px', borderRadius: 999,
                   border: '1px solid rgba(59,110,248,0.35)',
@@ -1277,13 +1337,13 @@ export default function RecomendacionesPage() {
               {/* Radar */}
               <div>
                 <p style={panelLabelStyle}>Tu perfil VARK</p>
-                <RadarChart data={PERFIL_VARK} size={220} />
+                <RadarChart data={perfilVark} size={220} />
 
                 {/* VARK % bars */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
                   {(['V', 'A', 'R', 'K'] as EstiloVark[]).map((v) => {
                     const cfg = VARK_CFG[v];
-                    const pct = PERFIL_VARK[v.toLowerCase() as 'v' | 'a' | 'r' | 'k'];
+                    const pct = perfilVark[v.toLowerCase() as 'v' | 'a' | 'r' | 'k'];
                     return (
                       <div key={v} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span
@@ -1578,7 +1638,7 @@ export default function RecomendacionesPage() {
         maxWidth={680}
       >
         {justRecurso && (
-          <JustContent rec={justRecurso} onClose={() => setJustOpen(false)} />
+          <JustContent rec={justRecurso} onClose={() => setJustOpen(false)} perfilVark={perfilVark} />
         )}
       </Modal>
     </div>

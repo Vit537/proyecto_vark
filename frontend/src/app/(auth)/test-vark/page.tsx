@@ -6,20 +6,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, ArrowLeft, Brain, CheckCircle2 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import RadarChart from '@/components/ui/RadarChart';
+import { generarTestVARK, completarTestVARK } from '@/lib/api/accounts';
+import type { PreguntaTest } from '@/lib/api/types';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type VarkKey = 'v' | 'a' | 'r' | 'k';
-
-interface Option {
-  key: VarkKey;
-  text: string;
-}
-
-interface Question {
-  id: number;
-  text: string;
-  options: Option[];
-}
 
 interface VarkScores {
   v: number;
@@ -28,110 +19,7 @@ interface VarkScores {
   k: number;
 }
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-const QUESTIONS: Question[] = [
-  {
-    id: 1,
-    text: 'Cuando aprendes algo nuevo, ¿qué prefieres?',
-    options: [
-      { key: 'v', text: 'Ver diagramas, gráficos o mapas conceptuales' },
-      { key: 'a', text: 'Escuchar explicaciones o podcasts sobre el tema' },
-      { key: 'r', text: 'Leer textos, artículos o libros detallados' },
-      { key: 'k', text: 'Practicarlo directamente con ejercicios o proyectos' },
-    ],
-  },
-  {
-    id: 2,
-    text: '¿Cómo sueles recordar mejor la información?',
-    options: [
-      { key: 'v', text: 'Con imágenes, colores o esquemas visuales' },
-      { key: 'a', text: 'Repitiendo en voz alta o escuchando grabaciones' },
-      { key: 'r', text: 'Tomando notas y releyendo apuntes escritos' },
-      { key: 'k', text: 'Haciendo demostraciones o experimentos prácticos' },
-    ],
-  },
-  {
-    id: 3,
-    text: 'En clase, ¿qué actividad te resulta más útil?',
-    options: [
-      { key: 'v', text: 'Ver presentaciones con muchas imágenes y visualizaciones' },
-      { key: 'a', text: 'Participar en debates y discusiones grupales' },
-      { key: 'r', text: 'Leer el material antes de la clase y tomar notas' },
-      { key: 'k', text: 'Realizar talleres prácticos y dinámicas de grupo' },
-    ],
-  },
-  {
-    id: 4,
-    text: 'Cuando te pierdes en una ciudad desconocida, prefieres:',
-    options: [
-      { key: 'v', text: 'Consultar un mapa visual o Google Maps en modo vista' },
-      { key: 'a', text: 'Pedir indicaciones orales a alguien del lugar' },
-      { key: 'r', text: 'Buscar instrucciones escritas paso a paso' },
-      { key: 'k', text: 'Explorar caminando hasta encontrar el camino' },
-    ],
-  },
-  {
-    id: 5,
-    text: '¿Cómo prefieres recibir retroalimentación de un proyecto?',
-    options: [
-      { key: 'v', text: 'Con anotaciones gráficas, tablas o infografías' },
-      { key: 'a', text: 'En una conversación o reunión con comentarios verbales' },
-      { key: 'r', text: 'Con comentarios escritos detallados y específicos' },
-      { key: 'k', text: 'Revisando el trabajo en conjunto con demostración de mejoras' },
-    ],
-  },
-  {
-    id: 6,
-    text: '¿Qué tipo de contenido de estudio consumes más?',
-    options: [
-      { key: 'v', text: 'Videos, infografías y presentaciones visuales' },
-      { key: 'a', text: 'Podcasts, audiolibros y conferencias en audio' },
-      { key: 'r', text: 'Artículos, ensayos y libros de texto' },
-      { key: 'k', text: 'Tutoriales interactivos y ejercicios prácticos' },
-    ],
-  },
-  {
-    id: 7,
-    text: 'Cuando tienes que explicarle algo a alguien, ¿qué haces?',
-    options: [
-      { key: 'v', text: 'Dibujas un esquema o compartes imágenes de referencia' },
-      { key: 'a', text: 'Lo explicas verbalmente con ejemplos sonoros' },
-      { key: 'r', text: 'Escribes un resumen o guía paso a paso' },
-      { key: 'k', text: 'Lo demuestras haciendo el proceso en tiempo real' },
-    ],
-  },
-  {
-    id: 8,
-    text: '¿Qué te ayuda más a concentrarte al estudiar?',
-    options: [
-      { key: 'v', text: 'Un espacio ordenado con recursos visuales a la vista' },
-      { key: 'a', text: 'Música instrumental o ambiente sonoro apropiado' },
-      { key: 'r', text: 'Silencio total y material de lectura impreso' },
-      { key: 'k', text: 'Tomar descansos frecuentes y estudiar en movimiento' },
-    ],
-  },
-  {
-    id: 9,
-    text: 'Al resolver un problema difícil, tu primer instinto es:',
-    options: [
-      { key: 'v', text: 'Hacer un diagrama o mapa mental del problema' },
-      { key: 'a', text: 'Hablarlo con alguien o razonarlo en voz alta' },
-      { key: 'r', text: 'Investigar y leer sobre casos similares' },
-      { key: 'k', text: 'Intentar soluciones directamente y aprender del error' },
-    ],
-  },
-  {
-    id: 10,
-    text: 'Después de aprender algo nuevo, para consolidarlo prefieres:',
-    options: [
-      { key: 'v', text: 'Crear un resumen visual con colores y esquemas' },
-      { key: 'a', text: 'Explicárselo a alguien o grabarte a ti mismo' },
-      { key: 'r', text: 'Escribir un resumen detallado con tus propias palabras' },
-      { key: 'k', text: 'Aplicarlo inmediatamente en un proyecto real' },
-    ],
-  },
-];
-
+// ─── VARK display config ──────────────────────────────────────────────────────
 const VARK_LABELS: Record<VarkKey, string> = {
   v: 'Visual',
   a: 'Auditivo',
@@ -184,20 +72,26 @@ const fadeUp = {
 export default function TestVarkPage() {
   const router = useRouter();
 
-  // step: -1 = welcome, 0-9 = questions, 10 = results
+  // step: -1 = welcome, 0..n-1 = questions, questions.length = results
   const [step, setStep] = useState(-1);
   const [direction, setDirection] = useState(1);
-  const [answers, setAnswers] = useState<Record<number, VarkKey>>({});
+  const [answers, setAnswers] = useState<Record<number, string>>({});
   const [calculating, setCalculating] = useState(false);
   const [results, setResults] = useState<VarkScores | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const currentQuestion = QUESTIONS[step] ?? null;
+  // Questions loaded from API
+  const [questions, setQuestions] = useState<PreguntaTest[]>([]);
+  const [sesionId, setSesionId] = useState<number | null>(null);
+
+  const currentQuestion = questions[step] ?? null;
   const selectedAnswer = step >= 0 ? answers[step] : undefined;
-  const progress = step < 0 ? 0 : ((step + 1) / QUESTIONS.length) * 100;
+  const progress = step < 0 ? 0 : ((step + 1) / questions.length) * 100;
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
   const goNext = () => {
-    if (step === QUESTIONS.length - 1) {
+    if (step === questions.length - 1) {
       handleFinish();
       return;
     }
@@ -210,44 +104,64 @@ export default function TestVarkPage() {
     setStep((s) => s - 1);
   };
 
-  const handleStart = () => {
-    setDirection(1);
-    setStep(0);
+  const handleStart = async () => {
+    setLoadError(null);
+    setCalculating(true);
+    try {
+      const data = await generarTestVARK();
+      if (data.completado === true) {
+        // Already completed - go straight to dashboard
+        router.push('/dashboard');
+        return;
+      }
+      setQuestions(data.preguntas);
+      setSesionId(data.sesion_id);
+      setDirection(1);
+      setStep(0);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'No se pudo cargar el test.';
+      setLoadError(message);
+    } finally {
+      setCalculating(false);
+    }
   };
 
-  const handleSelectOption = (key: VarkKey) => {
-    setAnswers((prev) => ({ ...prev, [step]: key }));
+  const handleSelectOption = (optionId: string) => {
+    setAnswers((prev) => ({ ...prev, [step]: optionId }));
   };
 
   const handleFinish = async () => {
+    if (sesionId === null) return;
     setCalculating(true);
+    setSubmitError(null);
     setDirection(1);
 
-    // Compute scores from answers
-    const scores: VarkScores = { v: 0, a: 0, r: 0, k: 0 };
-    Object.values(answers).forEach((key) => {
-      scores[key] += 1;
+    // Build respuestas map: { "questionId": "optionId" }
+    const respuestas: Record<string, string> = {};
+    questions.forEach((q, idx) => {
+      if (answers[idx]) {
+        respuestas[String(q.id)] = answers[idx];
+      }
     });
 
-    // Normalize to percentage (max 10 points)
-    const normalized: VarkScores = {
-      v: Math.round((scores.v / QUESTIONS.length) * 100),
-      a: Math.round((scores.a / QUESTIONS.length) * 100),
-      r: Math.round((scores.r / QUESTIONS.length) * 100),
-      k: Math.round((scores.k / QUESTIONS.length) * 100),
-    };
-
-    // Simulate brief calculation delay
-    await new Promise((res) => setTimeout(res, 1200));
-
-    setResults(normalized);
-    setCalculating(false);
-    setStep(10);
+    try {
+      const data = await completarTestVARK({ sesion_id: sesionId, respuestas });
+      const vec = data.perfil_vark.vector;
+      setResults({ v: vec.V, a: vec.A, r: vec.R, k: vec.K });
+      setStep(questions.length);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al enviar respuestas.';
+      setSubmitError(message);
+    } finally {
+      setCalculating(false);
+    }
   };
 
   const dominantStyle = results
     ? (Object.entries(results).sort(([, a], [, b]) => b - a)[0][0] as VarkKey)
     : null;
+
+  const isLastQuestion = step === questions.length - 1;
 
   // ─── Welcome screen ─────────────────────────────────────────────────────────
   const renderWelcome = () => (
@@ -352,11 +266,17 @@ export default function TestVarkPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.38, duration: 0.4 }}
         >
-          <Button variant="primary" onClick={handleStart}>
-            Comenzar test &nbsp;
+          <Button variant="primary" onClick={handleStart} disabled={calculating}>
+            {calculating ? 'Cargando…' : 'Comenzar test'} &nbsp;
             <ArrowRight size={16} />
           </Button>
         </motion.div>
+
+        {loadError && (
+          <p style={{ marginTop: 14, fontSize: '0.8rem', color: 'var(--error, #f87171)', fontFamily: 'var(--font-dm-sans), DM Sans, sans-serif' }}>
+            {loadError}
+          </p>
+        )}
 
         <motion.p
           initial={{ opacity: 0 }}
@@ -369,7 +289,7 @@ export default function TestVarkPage() {
             fontFamily: 'var(--font-dm-sans), DM Sans, sans-serif',
           }}
         >
-          10 preguntas · ~3 minutos · Sin respuestas correctas o incorrectas
+          ~3 minutos · Sin respuestas correctas o incorrectas
         </motion.p>
       </div>
     </motion.div>
@@ -401,7 +321,7 @@ export default function TestVarkPage() {
               marginBottom: 10,
             }}
           >
-            Pregunta {step + 1} de {QUESTIONS.length}
+            Pregunta {step + 1} de {questions.length}
           </span>
           <h2
             style={{
@@ -413,25 +333,25 @@ export default function TestVarkPage() {
               lineHeight: 1.4,
             }}
           >
-            {currentQuestion?.text}
+            {currentQuestion?.enunciado}
           </h2>
         </div>
 
         {/* Options */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {currentQuestion?.options.map((opt, i) => {
-            const isSelected = selectedAnswer === opt.key;
-            const color = VARK_COLORS[opt.key];
+          {currentQuestion?.opciones.map((opt, i) => {
+            const isSelected = selectedAnswer === opt.id;
+            const color = 'var(--accent-blue)';
             return (
               <motion.button
-                key={opt.key}
+                key={opt.id}
                 type="button"
                 custom={i}
                 variants={fadeUp}
                 initial="hidden"
                 animate="visible"
-                onClick={() => handleSelectOption(opt.key)}
-                whileHover={{ scale: 1.015, boxShadow: `0 0 18px ${color}22` }}
+                onClick={() => handleSelectOption(opt.id)}
+                whileHover={{ scale: 1.015, boxShadow: `0 0 18px rgba(59,110,248,0.14)` }}
                 whileTap={{ scale: 0.985 }}
                 style={{
                   display: 'flex',
@@ -440,14 +360,14 @@ export default function TestVarkPage() {
                   padding: '14px 18px',
                   borderRadius: 'var(--radius-md)',
                   border: `1px solid ${isSelected ? color : 'var(--border-glass)'}`,
-                  background: isSelected ? `${color}18` : 'var(--bg-glass)',
+                  background: isSelected ? 'rgba(59,110,248,0.12)' : 'var(--bg-glass)',
                   cursor: 'pointer',
                   textAlign: 'left',
                   transition: 'border-color 0.2s, background 0.2s',
-                  boxShadow: isSelected ? `0 0 14px ${color}33` : 'none',
+                  boxShadow: isSelected ? '0 0 14px rgba(59,110,248,0.2)' : 'none',
                 }}
               >
-                {/* VARK letter badge */}
+                {/* Option letter badge */}
                 <span
                   style={{
                     flexShrink: 0,
@@ -457,7 +377,7 @@ export default function TestVarkPage() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    background: isSelected ? `${color}33` : 'rgba(255,255,255,0.05)',
+                    background: isSelected ? 'rgba(59,110,248,0.25)' : 'rgba(255,255,255,0.05)',
                     border: `1px solid ${isSelected ? color : 'rgba(255,255,255,0.1)'}`,
                     fontSize: '0.7rem',
                     fontWeight: 800,
@@ -467,7 +387,7 @@ export default function TestVarkPage() {
                     transition: 'all 0.2s',
                   }}
                 >
-                  {opt.key.toUpperCase()}
+                  {opt.id.toUpperCase()}
                 </span>
                 <span
                   style={{
@@ -479,7 +399,7 @@ export default function TestVarkPage() {
                     transition: 'color 0.2s',
                   }}
                 >
-                  {opt.text}
+                  {opt.texto}
                 </span>
                 {/* Check icon on selected */}
                 <AnimatePresence>
@@ -695,7 +615,7 @@ export default function TestVarkPage() {
 
       {/* Progress bar (visible during questions) */}
       <AnimatePresence>
-        {step >= 0 && step < QUESTIONS.length && (
+        {step >= 0 && step < questions.length && (
           <motion.div
             key="progress"
             initial={{ opacity: 0, y: -10 }}
@@ -706,7 +626,7 @@ export default function TestVarkPage() {
           >
             {/* Step indicators */}
             <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 14 }}>
-              {QUESTIONS.map((_, i) => (
+            {questions.map((_, i) => (
                 <motion.div
                   key={i}
                   animate={{
@@ -757,14 +677,14 @@ export default function TestVarkPage() {
           ? renderCalculating()
           : step === -1
             ? renderWelcome()
-            : step === 10
+            : step === questions.length
               ? renderResults()
               : renderQuestion()}
       </AnimatePresence>
 
       {/* Navigation buttons (visible during questions) */}
       <AnimatePresence>
-        {step >= 0 && step < QUESTIONS.length && !calculating && (
+        {step >= 0 && step < questions.length && !calculating && (
           <motion.div
             key="nav"
             initial={{ opacity: 0, y: 10 }}
@@ -797,20 +717,25 @@ export default function TestVarkPage() {
                 fontFamily: 'var(--font-dm-sans), DM Sans, sans-serif',
               }}
             >
-              {step + 1} / {QUESTIONS.length}
+              {step + 1} / {questions.length}
             </span>
 
             <Button
               variant="primary"
               onClick={goNext}
-              disabled={!selectedAnswer}
+              disabled={!selectedAnswer || calculating}
             >
-              {step === QUESTIONS.length - 1 ? 'Ver resultados' : 'Siguiente'}
+              {calculating ? 'Enviando…' : isLastQuestion ? 'Ver resultados' : 'Siguiente'}
               &nbsp; <ArrowRight size={16} />
             </Button>
           </motion.div>
-        )}
-      </AnimatePresence>
+
+          {/* Submit error */}
+          {submitError && (
+            <p style={{ marginTop: 12, textAlign: 'center', fontSize: '0.8rem', color: 'var(--error, #f87171)', fontFamily: 'var(--font-dm-sans), DM Sans, sans-serif' }}>
+              {submitError}
+            </p>
+          )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bell, X, BookOpen, CheckCircle2, Brain, Info,
@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+import { listarNotificaciones, marcarNotificacionLeida, marcarTodasLeidas } from '@/lib/api/analitica';
+import type { NotificacionAPI } from '@/lib/api/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -99,6 +101,29 @@ const INITIAL_NOTIFS: Notif[] = [
   },
 ];
 
+// ─── API → UI helper ───────────────────────────────────────────────────────────────
+
+function toNotif(n: NotificacionAPI): Notif {
+  const TIPO_MAP: Record<string, NotifType> = {
+    nuevo_recurso: 'recurso',
+    nuevo_quiz:    'quiz',
+    sistema:       'sistema',
+  };
+  const HREF_MAP: Record<string, string> = {
+    nuevo_recurso: '/recursos',
+    nuevo_quiz:    '/quiz',
+  };
+  return {
+    id:          String(n.id),
+    type:        TIPO_MAP[n.tipo] ?? 'sistema',
+    title:       n.titulo,
+    description: n.mensaje,
+    time:        new Date(n.fecha).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' }),
+    read:        n.leida,
+    href:        HREF_MAP[n.tipo],
+  };
+}
+
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 const TYPE_CFG: Record<NotifType, { Icon: typeof Bell; color: string; bg: string }> = {
@@ -122,6 +147,18 @@ export default function Topbar() {
   const [tab, setTab]           = useState<TabId>('todas');
   const [notifs, setNotifs]     = useState<Notif[]>(INITIAL_NOTIFS);
   const [hoveredId, setHovered] = useState<string | null>(null);
+  const loadedRef               = useRef(false);
+
+  // CU-22: Cargar notificaciones la primera vez que se abre el panel
+  useEffect(() => {
+    if (!open || loadedRef.current) return;
+    listarNotificaciones()
+      .then((data) => {
+        setNotifs(data.map(toNotif));
+        loadedRef.current = true;
+      })
+      .catch(() => {}); // Mantener INITIAL_NOTIFS como fallback
+  }, [open]);
 
   const unread = notifs.filter((n) => !n.read).length;
 
@@ -141,10 +178,12 @@ export default function Topbar() {
   };
 
   const markRead = useCallback((id: string) => {
+    marcarNotificacionLeida(Number(id)).catch(() => {});
     setNotifs((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
   }, []);
 
   const markAllRead = useCallback(() => {
+    marcarTodasLeidas().catch(() => {});
     setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
   }, []);
 

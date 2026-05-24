@@ -18,6 +18,8 @@ import Button   from '@/components/ui/Button';
 import Modal    from '@/components/ui/Modal';
 import Select   from '@/components/ui/Select';
 import RadarChart from '@/components/ui/RadarChart';
+import { reporteDocente, exportarReporte } from '@/lib/api/analitica';
+import type { ReporteDocente, RecursoEfectivo, EstudianteBajoEngagement, ExportReporteParams } from '@/lib/api/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -64,6 +66,34 @@ const MOCK_RECURSOS: RecursoTop[] = [
   { pos: 9,  titulo: 'Tutorial Visual: Árboles Binarios',            tipo: 'video',     vark: 'V', vistas: 74,  valoracion: 4.6 },
   { pos: 10, titulo: 'Lectura: Patrones de Diseño',                  tipo: 'documento', vark: 'R', vistas: 61,  valoracion: 4.0 },
 ];
+
+// ─── API → UI helpers ────────────────────────────────────────────────────────
+
+function toEstudiante(e: EstudianteBajoEngagement): Estudiante {
+  const parts   = e.nombre.trim().split(' ');
+  const avatar  = parts.map((p) => p[0] ?? '').join('').slice(0, 2).toUpperCase() || 'U';
+  return {
+    id:              String(e.id),
+    nombre:          e.nombre,
+    avatar,
+    dominante:       'V',
+    profile:         { v: 50, a: 50, r: 50, k: 50 },
+    quizzes:         0,
+    recursos:        0,
+    ultimaActividad: 'Sin actividad reciente',
+  };
+}
+
+function toRecursoTop(r: RecursoEfectivo, pos: number): RecursoTop {
+  return {
+    pos,
+    titulo:    r['recurso__titulo'],
+    tipo:      'video',
+    vark:      r['recurso__categoria_vark'],
+    vistas:    r.total_clics,
+    valoracion: 4.0,
+  };
+}
 
 // ─── Configs ──────────────────────────────────────────────────────────────────
 
@@ -234,9 +264,24 @@ function ExportModal({ open, onClose, initialFormat = 'pdf' }: ExportModalProps)
     setContent(updates);
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     setStatus('generating');
-    setTimeout(() => setStatus('ready'), 2500);
+    try {
+      const params: ExportReporteParams = { formato: format };
+      if (range === '30d') {
+        const now = new Date();
+        params.fecha_fin = now.toISOString().slice(0, 10);
+        now.setDate(now.getDate() - 30);
+        params.fecha_inicio = now.toISOString().slice(0, 10);
+      } else if (range === 'personalizado') {
+        if (dateFrom) params.fecha_inicio = dateFrom;
+        if (dateTo)   params.fecha_fin   = dateTo;
+      }
+      await exportarReporte(params);
+      setStatus('ready');
+    } catch {
+      setStatus('idle');
+    }
   };
 
   const handleClose = () => { setStatus('idle'); onClose(); };
@@ -523,12 +568,45 @@ export default function ReportesPage() {
   const [grupo, setGrupo]               = useState('');
   const [exportOpen, setExportOpen]     = useState(false);
   const [exportFormat, setExportFormat] = useState<ExportFormat>('pdf');
+  const [reporte, setReporte]           = useState<ReporteDocente | null>(null);
 
-  const students   = MOCK_ESTUDIANTES; // could filter by curso/grupo
+  // CU-19: Cargar reporte docente al montar
+  useEffect(() => {
+    let mounted = true;
+    reporteDocente()
+      .then((data) => { if (mounted) setReporte(data); })
+      .catch(() => {}); // Mantener datos mock como fallback
+    return () => { mounted = false; };
+  }, []);
+
+  const students = useMemo(
+    () => reporte?.estudiantes_bajo_engagement.map(toEstudiante) ?? MOCK_ESTUDIANTES,
+    [reporte],
+  );
+  const recursos = useMemo(
+    () => reporte?.recursos_mas_efectivos.map((r, i) => toRecursoTop(r, i + 1)) ?? MOCK_RECURSOS,
+    [reporte],
+  );
+  const groupProfile = useMemo((): VarkProfile => {
+    if (!reporte) return groupAvgProfile(MOCK_ESTUDIANTES);
+    const dist  = reporte.distribucion_vark;
+    const total = dist.V + dist.A + dist.R + dist.K;
+    if (total === 0) return { v: 25, a: 25, r: 25, k: 25 };
+    return {
+      v: Math.round((dist.V / total) * 100),
+      a: Math.round((dist.A / total) * 100),
+      r: Math.round((dist.R / total) * 100),
+      k: Math.round((dist.K / total) * 100),
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reporte]);
+
   const dominant   = groupDominant(students);
-  const avgQ       = avgQuizzes(students);
-  const avgProfile = groupAvgProfile(students);
-  const maxVistas  = MOCK_RECURSOS[0].vistas;
+  const avgQ       = reporte
+    ? Math.round(reporte.promedio_puntaje_quizzes * 100)
+    : avgQuizzes(students);
+  const avgProfile = groupProfile;
+  const maxVistas  = recursos[0]?.vistas ?? 1;
 
   // Bar chart data
   const barData = viewMode === 'individual'
@@ -635,7 +713,7 @@ export default function ReportesPage() {
             <span style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>Estudiantes activos</span>
           </div>
           <div style={{ fontFamily: 'var(--font-syne), Syne, sans-serif', fontSize: '2.2rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
-            {students.length}
+            {reporte?.total_estudiantes ?? students.length}
           </div>
         </motion.div>
 
@@ -889,7 +967,7 @@ export default function ReportesPage() {
           animate="visible"
           style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
         >
-          {MOCK_RECURSOS.map((rec) => {
+          {recursos.map((rec) => {
             const Icon = TIPO_ICON[rec.tipo];
             const pct  = Math.round((rec.vistas / maxVistas) * 100);
             return (

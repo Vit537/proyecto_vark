@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkles, Check, X, Edit2, ExternalLink,
@@ -8,6 +8,15 @@ import {
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge  from '@/components/ui/Badge';
+import Modal  from '@/components/ui/Modal';
+import {
+  listarTemas,
+  listarSugerencias,
+  sugerirRecursosIA,
+  aprobarSugerencia,
+  rechazarSugerencia,
+} from '@/lib/api/contenido';
+import type { TemaSimple, SugerenciaIA } from '@/lib/api/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type EstiloVark = 'V' | 'A' | 'R' | 'K';
@@ -149,13 +158,45 @@ const detailVariants = {
   exit:    { opacity: 0, x: 20, transition: { duration: 0.2 } },
 };
 
+// ─── Helpers API → UI ────────────────────────────────────────────────────────
+const NIVEL_TO_DIF: Record<string, 1 | 2 | 3> = {
+  basico: 1, intermedio: 2, avanzado: 3,
+};
+
+function toSugerencia(s: SugerenciaIA): Sugerencia {
+  const nivelLower = s.nivel_complejidad.toLowerCase();
+  return {
+    id:          String(s.id),
+    titulo:      s.titulo,
+    url:         s.url,
+    urlCorta:    s.url.replace(/^https?:\/\//, '').slice(0, 30) + (s.url.length > 36 ? '…' : ''),
+    descripcion: s.descripcion,
+    vark:        s.categoria_vark,
+    dificultad:  NIVEL_TO_DIF[nivelLower] ?? 1,
+    razon:       s.justificacion_pedagogica,
+    estado:      s.estado === 'pendiente' ? 'Pendiente'
+                 : s.estado === 'aprobado' ? 'Aprobado'
+                 : 'Rechazado',
+    fecha:       new Date(s.fecha_sugerencia).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }),
+  };
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function SugerenciasPage() {
-  const [sugerencias, setSugerencias] = useState<Sugerencia[]>(MOCK_SUGERENCIAS);
+  const [sugerencias, setSugerencias] = useState<Sugerencia[]>([]);
   const [selectedId,  setSelectedId]  = useState<string | null>(null);
   const [filtroEst,   setFiltroEst]   = useState('');
   const [solicitando, setSolicitando] = useState(false);
   const [actionId,    setActionId]    = useState<string | null>(null); // id en proceso
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState<string | null>(null);
+  // Solicitar modal state (CU-09)
+  const [modalOpen,   setModalOpen]   = useState(false);
+  const [temas,       setTemas]       = useState<TemaSimple[]>([]);
+  const [formTemaId,  setFormTemaId]  = useState<number | ''>('');
+  const [formVark,    setFormVark]    = useState<'V' | 'A' | 'R' | 'K'>('V');
+  const [formNivel,   setFormNivel]   = useState<'basico' | 'intermedio' | 'avanzado'>('basico');
+  const [formCantidad,setFormCantidad]= useState(8);
 
   const pendientes = useMemo(
     () => sugerencias.filter((s) => s.estado === 'Pendiente').length,
@@ -172,40 +213,80 @@ export default function SugerenciasPage() {
     [sugerencias, selectedId],
   );
 
+  // ── Cargar datos al montar ────────────────────────────────────────────────
+  useEffect(() => {
+    let mounted = true;
+    Promise.all([
+      listarSugerencias(),
+      listarTemas(),
+    ])
+      .then(([sug, temasData]) => {
+        if (!mounted) return;
+        setSugerencias(sug.map(toSugerencia));
+        setTemas(temasData);
+        if (temasData.length > 0) setFormTemaId(temasData[0].id);
+      })
+      .catch((err: Error) => { if (mounted) setError(err.message); })
+      .finally(() => { if (mounted) setLoading(false); });
+    return () => { mounted = false; };
+  }, []);
+
   // ── Handlers ─────────────────────────────────────────────────────────────
-  const handleSolicitar = () => {
+  // CU-09: Abrir modal de solicitud
+  const handleSolicitar = () => setModalOpen(true);
+
+  // CU-09: Enviar solicitud a la IA
+  const handleModalSubmit = async () => {
+    if (formTemaId === '') return;
     setSolicitando(true);
-    setTimeout(() => {
-      const nueva: Sugerencia = {
-        id:          Date.now().toString(),
-        titulo:      'Nuevo recurso sugerido por IA — Decoradores en Python',
-        url:         'https://realpython.com/primer-on-python-decorators/',
-        urlCorta:    'realpython.com/primer-on-p…',
-        descripcion: 'Guía completa sobre decoradores en Python, explicando funciones de orden superior, el símbolo @, decoradores con argumentos y casos de uso reales.',
-        vark:        'R',
-        dificultad:  3,
-        razon:       'El plan de estudio indica que el estudiante avanzará a temas de metaprogramación. Este recurso textual se alinea con su estilo R y el siguiente hito curricular.',
-        estado:      'Pendiente',
-        fecha:       '10 may 2026',
-      };
-      setSugerencias((prev) => [nueva, ...prev]);
+    try {
+      const nuevas = await sugerirRecursosIA({
+        tema_id: formTemaId as number,
+        categoria_vark: formVark,
+        nivel_complejidad: formNivel,
+        cantidad: formCantidad,
+      });
+      setSugerencias((prev) => [...nuevas.map(toSugerencia), ...prev]);
+      setModalOpen(false);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al solicitar sugerencias');
+    } finally {
       setSolicitando(false);
-    }, 1800);
+    }
   };
 
-  const changeEstado = (id: string, nuevoEstado: EstadoSug) => {
+  // CU-10: Aprobar / Rechazar sugerencia
+  const changeEstado = async (id: string, nuevoEstado: EstadoSug) => {
     setActionId(id);
-    setTimeout(() => {
+    try {
+      const pk = Number(id);
+      if (nuevoEstado === 'Aprobado') {
+        await aprobarSugerencia(pk);
+      } else if (nuevoEstado === 'Rechazado') {
+        await rechazarSugerencia(pk);
+      }
       setSugerencias((prev) =>
         prev.map((s) => s.id === id ? { ...s, estado: nuevoEstado } : s),
       );
       if (selectedId === id) setSelectedId(null);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al actualizar sugerencia');
+    } finally {
       setActionId(null);
-    }, 500);
+    }
   };
 
   // ─── Render ──────────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontFamily: 'var(--font-dm-sans)' }}>
+        Cargando sugerencias…
+      </div>
+    );
+  }
+
   return (
+    <>
     <div
       style={{
         display: 'flex',
@@ -597,6 +678,82 @@ export default function SugerenciasPage() {
         </AnimatePresence>
       </div>
     </div>
+
+    {/* ── CU-09: Modal para solicitar nuevas sugerencias ─────────────────── */}
+    <Modal open={modalOpen} onClose={() => !solicitando && setModalOpen(false)} title="Solicitar sugerencias a la IA">
+      {error && (
+        <p style={{ margin: '0 0 12px', fontFamily: 'var(--font-dm-sans)', fontSize: '0.82rem', color: 'var(--danger)' }}>
+          {error}
+        </p>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div>
+          <label style={{ display: 'block', fontFamily: 'var(--font-dm-sans)', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>
+            Tema
+          </label>
+          <select
+            value={formTemaId}
+            onChange={(e) => setFormTemaId(Number(e.target.value))}
+            style={{ width: '100%', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontFamily: 'var(--font-dm-sans)', fontSize: '0.85rem', padding: '8px 10px' }}
+          >
+            {temas.map((t) => (
+              <option key={t.id} value={t.id} style={{ background: '#0a1535' }}>{t.nombre}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label style={{ display: 'block', fontFamily: 'var(--font-dm-sans)', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>
+            Estilo VARK
+          </label>
+          <select
+            value={formVark}
+            onChange={(e) => setFormVark(e.target.value as 'V' | 'A' | 'R' | 'K')}
+            style={{ width: '100%', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontFamily: 'var(--font-dm-sans)', fontSize: '0.85rem', padding: '8px 10px' }}
+          >
+            <option value="V" style={{ background: '#0a1535' }}>V — Visual</option>
+            <option value="A" style={{ background: '#0a1535' }}>A — Auditivo</option>
+            <option value="R" style={{ background: '#0a1535' }}>R — Lectura</option>
+            <option value="K" style={{ background: '#0a1535' }}>K — Kinestésico</option>
+          </select>
+        </div>
+        <div>
+          <label style={{ display: 'block', fontFamily: 'var(--font-dm-sans)', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>
+            Nivel
+          </label>
+          <select
+            value={formNivel}
+            onChange={(e) => setFormNivel(e.target.value as 'basico' | 'intermedio' | 'avanzado')}
+            style={{ width: '100%', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontFamily: 'var(--font-dm-sans)', fontSize: '0.85rem', padding: '8px 10px' }}
+          >
+            <option value="basico" style={{ background: '#0a1535' }}>Básico</option>
+            <option value="intermedio" style={{ background: '#0a1535' }}>Intermedio</option>
+            <option value="avanzado" style={{ background: '#0a1535' }}>Avanzado</option>
+          </select>
+        </div>
+        <div>
+          <label style={{ display: 'block', fontFamily: 'var(--font-dm-sans)', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>
+            Cantidad (5–10)
+          </label>
+          <input
+            type="number"
+            min={5} max={10}
+            value={formCantidad}
+            onChange={(e) => setFormCantidad(Math.min(10, Math.max(5, Number(e.target.value))))}
+            style={{ width: '100%', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontFamily: 'var(--font-dm-sans)', fontSize: '0.85rem', padding: '8px 10px' }}
+          />
+        </div>
+        <div style={{ display: 'flex', gap: 10, paddingTop: 6 }}>
+          <Button variant="ghost" onClick={() => setModalOpen(false)} disabled={solicitando} style={{ flex: 1 }}>
+            Cancelar
+          </Button>
+          <Button variant="primary" onClick={handleModalSubmit} loading={solicitando} disabled={solicitando || formTemaId === ''} style={{ flex: 1 }}>
+            <Sparkles size={14} />
+            {solicitando ? 'Generando…' : 'Generar'}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+    </>
   );
 }
 
