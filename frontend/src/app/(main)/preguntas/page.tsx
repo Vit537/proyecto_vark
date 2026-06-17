@@ -11,6 +11,9 @@ import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
 import Select, { SelectOption } from '@/components/ui/Select';
 import Input from '@/components/ui/Input';
+import { useEffect } from 'react';
+import { getPreguntas, createPregunta, updatePregunta, deletePregunta } from '@/services/preguntas';
+import { getTemas } from '@/services/temas';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Dificultad = 'Fácil' | 'Media' | 'Difícil';
@@ -49,15 +52,15 @@ interface FormErrors {
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 const TEMAS: SelectOption[] = [
-  { value: 'numeros',  label: 'Números' },
-  { value: 'cadenas',  label: 'Cadenas' },
+  { value: 'numeros', label: 'Números' },
+  { value: 'cadenas', label: 'Cadenas' },
   { value: 'vectores', label: 'Vectores' },
   { value: 'matrices', label: 'Matrices' },
 ];
 
 const DIFICULTADES: SelectOption[] = [
-  { value: 'Fácil',  label: 'Fácil' },
-  { value: 'Media',  label: 'Media' },
+  { value: 'Fácil', label: 'Fácil' },
+  { value: 'Media', label: 'Media' },
   { value: 'Difícil', label: 'Difícil' },
 ];
 
@@ -186,14 +189,14 @@ const MOCK_PREGUNTAS: Pregunta[] = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const DIFICULTAD_VARIANT: Record<Dificultad, 'success' | 'warning' | 'danger'> = {
-  'Fácil':   'success',
-  'Media':   'warning',
+  'Fácil': 'success',
+  'Media': 'warning',
   'Difícil': 'danger',
 };
 
 const TEMA_LABEL: Record<string, string> = {
-  numeros:  'Números',
-  cadenas:  'Cadenas',
+  numeros: 'Números',
+  cadenas: 'Cadenas',
   vectores: 'Vectores',
   matrices: 'Matrices',
 };
@@ -219,37 +222,52 @@ function emptyForm(): FormState {
 
 // ─── Animation variants ───────────────────────────────────────────────────────
 const pageVariants = {
-  hidden:  { opacity: 0, y: 16 },
+  hidden: { opacity: 0, y: 16 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' as const } },
 };
 
 const containerVariants = {
-  hidden:  {},
+  hidden: {},
   visible: { transition: { staggerChildren: 0.06 } },
 };
 
 const rowVariants = {
-  hidden:  { opacity: 0, y: 10 },
+  hidden: { opacity: 0, y: 10 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.28 } },
 };
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
+const MAP_DIFICULTAD_TO_BACKEND = {
+  'Fácil': 'facil',
+  'Media': 'media',
+  'Difícil': 'dificil'
+} as const;
+
+const MAP_DIFICULTAD_FROM_BACKEND = {
+  'facil': 'Fácil',
+  'media': 'Media',
+  'dificil': 'Difícil'
+} as const;
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 export default function PreguntasPage() {
-  const [preguntas, setPreguntas] = useState<Pregunta[]>(MOCK_PREGUNTAS);
+  const [preguntas, setPreguntas] = useState<Pregunta[]>([]);
+  const [backendTemas, setBackendTemas] = useState<{ id: number; nombre: string }[]>([]);
+  const [loading, setLoading] = useState(false);
 
   // Filters
-  const [filterTema,       setFilterTema]       = useState('');
+  const [filterTema, setFilterTema] = useState('');
   const [filterDificultad, setFilterDificultad] = useState('');
 
   // Hover
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   // Form modal
-  const [formOpen,   setFormOpen]   = useState(false);
-  const [editingId,  setEditingId]  = useState<string | null>(null);
-  const [form,       setForm]       = useState<FormState>(emptyForm());
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<FormState>(emptyForm());
   const [formErrors, setFormErrors] = useState<FormErrors>({});
-  const [saving,     setSaving]     = useState(false);
+  const [saving, setSaving] = useState(false);
 
   // Preview modal
   const [previewPregunta, setPreviewPregunta] = useState<Pregunta | null>(null);
@@ -257,14 +275,79 @@ export default function PreguntasPage() {
   // Delete confirmation
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  // ─── Filtered data ──────────────────────────────────────────────────────────
-  const filtered = useMemo(() => {
-    return preguntas.filter((p) => {
-      if (filterTema       && p.tema       !== filterTema)       return false;
-      if (filterDificultad && p.dificultad !== filterDificultad) return false;
-      return true;
+  // ─── Shadow lists with backend data ──────────────────────────────────────────
+  const TEMAS = useMemo(() => {
+    return backendTemas.map((t) => ({ value: String(t.id), label: t.nombre }));
+  }, [backendTemas]);
+
+  const TEMA_LABEL = useMemo(() => {
+    const labels: Record<string, string> = {
+      numeros: 'Números',
+      cadenas: 'Cadenas',
+      vectores: 'Vectores',
+      matrices: 'Matrices',
+    };
+    backendTemas.forEach((t) => {
+      labels[String(t.id)] = t.nombre;
     });
-  }, [preguntas, filterTema, filterDificultad]);
+    return labels;
+  }, [backendTemas]);
+
+  // ─── Load questions and themes from API ──────────────────────────────────────
+  const fetchAndSetPreguntas = async () => {
+    setLoading(true);
+    try {
+      const filterDificultadBackend = filterDificultad ? MAP_DIFICULTAD_TO_BACKEND[filterDificultad as Dificultad] : undefined;
+      const data = await getPreguntas({
+        tema: filterTema || undefined,
+        dificultad: filterDificultadBackend,
+      });
+
+      const mapped: Pregunta[] = data.map((p) => {
+        const correctOpcion = p.opciones.find((o) => o.es_correcta);
+        return {
+          id: String(p.id),
+          enunciado: p.enunciado,
+          tema: String(p.tema),
+          dificultad: MAP_DIFICULTAD_FROM_BACKEND[p.nivel_dificultad] || 'Media',
+          opciones: p.opciones.map((o, idx) => ({
+            id: String(o.id || idx),
+            texto: o.texto,
+          })),
+          correctaId: correctOpcion ? String(correctOpcion.id) : '',
+          creadoPor: p.tema_nombre || 'Docente',
+          fecha: p.fecha_creacion ? new Date(p.fecha_creacion).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Reciente',
+        };
+      });
+
+      setPreguntas(mapped);
+    } catch (err) {
+      console.error('Error loading questions:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    async function loadThemes() {
+      try {
+        const temasData = await getTemas();
+        setBackendTemas(temasData);
+      } catch (err) {
+        console.error('Error loading themes:', err);
+      }
+    }
+    loadThemes();
+  }, []);
+
+  useEffect(() => {
+    fetchAndSetPreguntas();
+  }, [filterTema, filterDificultad]);
+
+  // ─── Filtered data (done by backend, but keep as fallback/safety) ──────────────
+  const filtered = useMemo(() => {
+    return preguntas;
+  }, [preguntas]);
 
   // ─── Form handlers ──────────────────────────────────────────────────────────
   const openCreate = () => {
@@ -277,10 +360,10 @@ export default function PreguntasPage() {
   const openEdit = (p: Pregunta) => {
     setEditingId(p.id);
     setForm({
-      enunciado:  p.enunciado,
-      tema:       p.tema,
+      enunciado: p.enunciado,
+      tema: p.tema,
       dificultad: p.dificultad,
-      opciones:   p.opciones.map((o) => ({ ...o })),
+      opciones: p.opciones.map((o) => ({ ...o })),
       correctaId: p.correctaId,
     });
     setFormErrors({});
@@ -290,53 +373,62 @@ export default function PreguntasPage() {
   const validate = (): boolean => {
     const errs: FormErrors = {};
     if (!form.enunciado.trim()) errs.enunciado = 'El enunciado es obligatorio';
-    if (!form.tema)             errs.tema       = 'Selecciona un tema';
-    if (!form.dificultad)       errs.dificultad = 'Selecciona la dificultad';
+    if (!form.tema) errs.tema = 'Selecciona un tema';
+    if (!form.dificultad) errs.dificultad = 'Selecciona la dificultad';
     const validas = form.opciones.filter((o) => o.texto.trim());
-    if (validas.length < 2)  errs.opciones = 'Debe haber al menos 2 opciones con texto';
-    if (!form.correctaId)    errs.correcta  = 'Marca la opción correcta';
+    if (validas.length < 2) errs.opciones = 'Debe haber al menos 2 opciones con texto';
+    if (!form.correctaId) errs.correcta = 'Marca la opción correcta';
     else if (!form.opciones.find((o) => o.id === form.correctaId && o.texto.trim()))
       errs.correcta = 'La opción correcta no tiene texto';
     setFormErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validate()) return;
     setSaving(true);
-    setTimeout(() => {
+    try {
       const opcionesConTexto = form.opciones.filter((o) => o.texto.trim());
+      const opcionesPayload = opcionesConTexto.map((o) => ({
+        texto: o.texto.trim(),
+        es_correcta: o.id === form.correctaId,
+      }));
+
+      const payload = {
+        enunciado: form.enunciado.trim(),
+        tema: Number(form.tema),
+        nivel_dificultad: MAP_DIFICULTAD_TO_BACKEND[form.dificultad as Dificultad],
+        opciones: opcionesPayload,
+      };
+
       if (editingId) {
-        setPreguntas((prev) =>
-          prev.map((p) =>
-            p.id === editingId
-              ? { ...p, enunciado: form.enunciado.trim(), tema: form.tema,
-                  dificultad: form.dificultad as Dificultad,
-                  opciones: opcionesConTexto, correctaId: form.correctaId }
-              : p,
-          ),
-        );
+        await updatePregunta(Number(editingId), payload);
       } else {
-        const nueva: Pregunta = {
-          id:         String(Date.now()),
-          enunciado:  form.enunciado.trim(),
-          tema:       form.tema,
-          dificultad: form.dificultad as Dificultad,
-          opciones:   opcionesConTexto,
-          correctaId: form.correctaId,
-          creadoPor:  'Docente',
-          fecha:      new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }),
-        };
-        setPreguntas((prev) => [nueva, ...prev]);
+        await createPregunta(payload);
       }
-      setSaving(false);
+
+      await fetchAndSetPreguntas();
       setFormOpen(false);
-    }, 600);
+    } catch (err) {
+      console.error('Error saving question:', err);
+      alert('Error al intentar guardar la pregunta. Revisa los datos.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setPreguntas((prev) => prev.filter((p) => p.id !== id));
-    setDeleteId(null);
+  const handleDelete = async (id: string) => {
+    try {
+      setSaving(true);
+      await deletePregunta(Number(id));
+      await fetchAndSetPreguntas();
+      setDeleteId(null);
+    } catch (err) {
+      console.error('Error deleting question:', err);
+      alert('Error al intentar eliminar la pregunta.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const updateOpcion = (idx: number, texto: string) => {
@@ -475,13 +567,13 @@ export default function PreguntasPage() {
                     padding: '4px 10px', borderRadius: 999,
                     background: filterDificultad === 'Fácil'
                       ? 'rgba(0,230,118,0.1)' : filterDificultad === 'Media'
-                      ? 'rgba(255,215,64,0.1)' : 'rgba(255,82,82,0.1)',
+                        ? 'rgba(255,215,64,0.1)' : 'rgba(255,82,82,0.1)',
                     border: `1px solid ${filterDificultad === 'Fácil'
                       ? 'rgba(0,230,118,0.3)' : filterDificultad === 'Media'
-                      ? 'rgba(255,215,64,0.3)' : 'rgba(255,82,82,0.3)'}`,
+                        ? 'rgba(255,215,64,0.3)' : 'rgba(255,82,82,0.3)'}`,
                     color: filterDificultad === 'Fácil'
                       ? 'var(--success)' : filterDificultad === 'Media'
-                      ? 'var(--warning)' : 'var(--danger)',
+                        ? 'var(--warning)' : 'var(--danger)',
                     fontSize: '0.72rem', fontWeight: 600,
                     cursor: 'pointer', letterSpacing: '0.05em',
                   }}

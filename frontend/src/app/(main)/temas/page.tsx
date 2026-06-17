@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Search, ChevronRight, Edit2, Trash2,
@@ -11,6 +11,7 @@ import Input from '@/components/ui/Input';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
 import Select from '@/components/ui/Select';
+import { getTemas, createTema, updateTema, deleteTema, createSubtema } from '@/services/temas';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface Subtema {
@@ -103,9 +104,11 @@ const rowVariants = {
 
 // ─── Page Component ───────────────────────────────────────────────────────────
 export default function TemasPage() {
-  const [temas, setTemas] = useState<Tema[]>(INITIAL_TEMAS);
+  const [temas, setTemas] = useState<Tema[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(['1']));
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
 
   // Modal
@@ -128,6 +131,44 @@ export default function TemasPage() {
   }, [temas, search]);
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
+  // ─── Load themes from API ──────────────────────────────────────────────────
+  const fetchAndSetTemas = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getTemas();
+      const mapped: Tema[] = data.map((t) => ({
+        id: String(t.id),
+        nombre: t.nombre,
+        descripcion: t.descripcion || '',
+        creadoPor: 'Docente / Admin',
+        fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }),
+        subtemas: (t.subtemas || []).map((s) => ({
+          id: String(s.id),
+          nombre: s.nombre,
+          descripcion: s.descripcion || '',
+          creadoPor: 'Docente / Admin',
+          fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }),
+        })),
+      }));
+      setTemas(mapped);
+      
+      // Auto expand first theme if present
+      if (mapped.length > 0) {
+        setExpandedIds(new Set([mapped[0].id]));
+      }
+    } catch (err) {
+      console.error('Error fetching themes:', err);
+      setError('No se pudieron cargar los temas desde el servidor.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAndSetTemas();
+  }, []);
+
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => {
       const next = new Set(prev);
@@ -175,14 +216,23 @@ export default function TemasPage() {
     setEditingSubtemaId(null);
   };
 
-  const deleteTema = (id: string) => setTemas((prev) => prev.filter((t) => t.id !== id));
+  const deleteTemaClick = async (id: string) => {
+    if (!confirm('¿Estás seguro de que deseas eliminar este tema?')) return;
+    try {
+      setLoading(true);
+      await deleteTema(Number(id));
+      await fetchAndSetTemas();
+    } catch (err) {
+      console.error('Error deleting theme:', err);
+      alert('Error al intentar eliminar el tema.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const deleteSubtema = (parentId: string, subId: string) => {
-    setTemas((prev) =>
-      prev.map((t) =>
-        t.id === parentId ? { ...t, subtemas: t.subtemas.filter((s) => s.id !== subId) } : t,
-      ),
-    );
+    // Note: API subtema deletion is not exposed in DRF backend, so we alert the user
+    alert('La eliminación de subtemas debe gestionarse a través del panel de administración del docente.');
   };
 
   const handleFormChange = (field: keyof FormState, value: string) => {
@@ -198,59 +248,39 @@ export default function TemasPage() {
       return;
     }
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 600));
 
-    if (editingTemaId) {
-      setTemas((prev) =>
-        prev.map((t) =>
-          t.id === editingTemaId
-            ? { ...t, nombre: form.nombre.trim(), descripcion: form.descripcion.trim() }
-            : t,
-        ),
-      );
-    } else if (editingSubtemaId) {
-      setTemas((prev) =>
-        prev.map((t) =>
-          t.id === form.parentId
-            ? {
-                ...t,
-                subtemas: t.subtemas.map((s) =>
-                  s.id === editingSubtemaId
-                    ? { ...s, nombre: form.nombre.trim(), descripcion: form.descripcion.trim() }
-                    : s,
-                ),
-              }
-            : t,
-        ),
-      );
-    } else if (form.parentId) {
-      const newSub: Subtema = {
-        id: `${form.parentId}-${Date.now()}`,
-        nombre: form.nombre.trim(),
-        descripcion: form.descripcion.trim(),
-        creadoPor: 'Admin',
-        fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }),
-      };
-      setTemas((prev) =>
-        prev.map((t) =>
-          t.id === form.parentId ? { ...t, subtemas: [...t.subtemas, newSub] } : t,
-        ),
-      );
-      setExpandedIds((prev) => new Set(prev).add(form.parentId));
-    } else {
-      const newTema: Tema = {
-        id: String(Date.now()),
-        nombre: form.nombre.trim(),
-        descripcion: form.descripcion.trim(),
-        creadoPor: 'Admin',
-        fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }),
-        subtemas: [],
-      };
-      setTemas((prev) => [...prev, newTema]);
+    try {
+      if (editingTemaId) {
+        // Edit Tema
+        await updateTema(Number(editingTemaId), {
+          nombre: form.nombre.trim(),
+          descripcion: form.descripcion.trim(),
+        });
+      } else if (editingSubtemaId) {
+        // Edit Subtema (not exposed in DRF backend)
+        alert('La edición de subtemas debe gestionarse a través del panel de administración del docente.');
+      } else if (form.parentId) {
+        // Create Subtema
+        await createSubtema(Number(form.parentId), {
+          nombre: form.nombre.trim(),
+          descripcion: form.descripcion.trim(),
+        });
+      } else {
+        // Create Tema
+        await createTema({
+          nombre: form.nombre.trim(),
+          descripcion: form.descripcion.trim(),
+        });
+      }
+
+      await fetchAndSetTemas();
+      closeModal();
+    } catch (err) {
+      console.error('Error saving:', err);
+      alert('Error al guardar. Por favor, revisa los datos ingresados.');
+    } finally {
+      setSaving(false);
     }
-
-    setSaving(false);
-    closeModal();
   };
 
   const temaOptions = temas.map((t) => ({ value: t.id, label: t.nombre }));
@@ -553,7 +583,7 @@ export default function TemasPage() {
                             <ActionBtn onClick={() => openCreateSubtema(tema.id)} title="Añadir subtema" color="var(--accent-cyan)">
                               <FolderPlus size={13} />
                             </ActionBtn>
-                            <ActionBtn onClick={() => deleteTema(tema.id)} title="Eliminar tema" color="var(--danger)">
+                            <ActionBtn onClick={() => deleteTemaClick(tema.id)} title="Eliminar tema" color="var(--danger)">
                               <Trash2 size={13} />
                             </ActionBtn>
                           </motion.div>

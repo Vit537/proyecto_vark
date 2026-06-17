@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
+import { getConfiguracion, updateConfiguracion } from '@/services/configuracion';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface VarkWeights  { V: number; A: number; R: number; K: number }
@@ -371,17 +372,79 @@ export default function ConfiguracionPage() {
     setConfig((prev) => ({ ...prev, vark: { ...prev.vark, [key]: value } }));
   }, []);
 
+  // ─── Load handler ───────────────────────────────────────────────────────────
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      try {
+        const backendConfig = await getConfiguracion();
+        if (!active) return;
+        
+        // Map from backend structure to frontend structure
+        const mapped: Config = {
+          vark: { V: 40, A: 20, R: 25, K: 15 }, // default fallback weights
+          decay: {
+            enabled: backendConfig.factor_decaimiento < 1.0,
+            speed: backendConfig.factor_decaimiento < 1.0 ? backendConfig.factor_decaimiento : 0.85,
+          },
+          filter: {
+            maxDifficulty: backendConfig.max_recomendaciones > 10 ? 'Difícil' : backendConfig.max_recomendaciones > 5 ? 'Media' : 'Fácil',
+            onlyApproved: backendConfig.umbral_similitud >= 0.25,
+            includeUnrated: backendConfig.peso_valoracion_util >= 0.15,
+          },
+          ab: {
+            enabled: typeof window !== 'undefined' ? localStorage.getItem('ab_enabled') === 'true' : false,
+            groupBPercent: typeof window !== 'undefined' ? Number(localStorage.getItem('ab_percent') || '30') : 30,
+          }
+        };
+        
+        setConfig(mapped);
+        setSavedConfig(mapped);
+        if (backendConfig.actualizado_en) {
+          setLastSaved(new Date(backendConfig.actualizado_en));
+        }
+      } catch (err) {
+        console.error('Error loading config:', err);
+      }
+    }
+    load();
+    return () => { active = false; };
+  }, []);
+
   // ─── Save handler ────────────────────────────────────────────────────────────
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true);
     setSaveState('idle');
-    setTimeout(() => {
-      setSaving(false);
-      setSaveState('success');
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('ab_enabled', String(config.ab.enabled));
+        localStorage.setItem('ab_percent', String(config.ab.groupBPercent));
+      }
+
+      // Map from frontend UI values back to the backend ConfiguracionMotor structure
+      const payload = {
+        factor_decaimiento: config.decay.enabled ? config.decay.speed : 1.0,
+        umbral_similitud: config.filter.onlyApproved ? 0.3 : 0.1,
+        max_recomendaciones: config.filter.maxDifficulty === 'Difícil' ? 12 : config.filter.maxDifficulty === 'Media' ? 8 : 4,
+        peso_valoracion_util: config.filter.includeUnrated ? 0.2 : 0.05,
+        dias_ventana_clickstream: 30,
+      };
+
+      const response = await updateConfiguracion(payload);
+
       setSavedConfig(config);
-      setLastSaved(new Date());
+      if (response.actualizado_en) {
+        setLastSaved(new Date(response.actualizado_en));
+      }
+      setSaveState('success');
       setTimeout(() => setSaveState('idle'), 3000);
-    }, 700);
+    } catch (err) {
+      console.error('Error saving config:', err);
+      setSaveState('error');
+      setTimeout(() => setSaveState('idle'), 4000);
+    } finally {
+      setSaving(false);
+    }
   };
 
   // ─── Render sections ─────────────────────────────────────────────────────────

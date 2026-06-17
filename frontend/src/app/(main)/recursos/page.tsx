@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play, FileText, Headphones, Code2,
@@ -12,6 +12,8 @@ import Badge   from '@/components/ui/Badge';
 import Modal   from '@/components/ui/Modal';
 import Input   from '@/components/ui/Input';
 import Select, { SelectOption } from '@/components/ui/Select';
+import { getRecursos, createRecurso, updateRecurso, deleteRecurso } from '@/services/recursos';
+import { getTemas } from '@/services/temas';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type TipoRecurso = 'video' | 'documento' | 'audio' | 'ejercicio';
@@ -24,6 +26,7 @@ interface Recurso {
   url:         string;
   descripcion: string;
   tema:        string;
+  temaNombre?: string;
   tipo:        TipoRecurso;
   vark:        EstiloVark;
   dificultad:  1 | 2 | 3;
@@ -369,8 +372,58 @@ const EMPTY_FORM: FormState = {
   tema: '', tipo: '', vark: '', dificultad: '',
 };
 
+function backendToFrontendRecurso(r: any): Recurso {
+  let tipo: TipoRecurso = 'documento';
+  if (r.tipo_formato === 'video') tipo = 'video';
+  else if (r.tipo_formato === 'ejercicio') tipo = 'ejercicio';
+  else if (r.tipo_formato === 'documento') tipo = 'documento';
+  else if (r.tipo_formato === 'articulo') {
+    tipo = r.categoria_vark === 'A' ? 'audio' : 'documento';
+  }
+
+  let dificultad: 1 | 2 | 3 = 1;
+  if (r.nivel_complejidad === 'basico') dificultad = 1;
+  else if (r.nivel_complejidad === 'intermedio') dificultad = 2;
+  else if (r.nivel_complejidad === 'avanzado') dificultad = 3;
+
+  return {
+    id: String(r.id),
+    titulo: r.titulo,
+    url: r.url,
+    descripcion: r.descripcion || '',
+    tema: String(r.tema),
+    temaNombre: r.tema_nombre || '',
+    tipo,
+    vark: r.categoria_vark,
+    dificultad,
+    estado: r.activo ? 'Aprobado' : 'Rechazado',
+  };
+}
+
+function frontendToBackendRecurso(f: FormState): any {
+  let tipo_formato = f.tipo;
+  if (f.tipo === 'audio') tipo_formato = 'articulo';
+
+  let nivel_complejidad = 'basico';
+  if (f.dificultad === '1') nivel_complejidad = 'basico';
+  else if (f.dificultad === '2') nivel_complejidad = 'intermedio';
+  else if (f.dificultad === '3') nivel_complejidad = 'avanzado';
+
+  return {
+    titulo: f.titulo,
+    url: f.url,
+    descripcion: f.descripcion,
+    tema: Number(f.tema),
+    categoria_vark: f.vark,
+    nivel_complejidad,
+    tipo_formato,
+    activo: true,
+  };
+}
+
 export default function RecursosPage() {
-  const [recursos,    setRecursos]    = useState<Recurso[]>(MOCK_RECURSOS);
+  const [recursos,    setRecursos]    = useState<Recurso[]>([]);
+  const [dbTemas,     setDbTemas]     = useState<any[]>([]);
   const [busqueda,    setBusqueda]    = useState('');
   const [filtroTema,  setFiltroTema]  = useState('');
   const [filtroVark,  setFiltroVark]  = useState('');
@@ -382,6 +435,37 @@ export default function RecursosPage() {
   const [form,        setForm]        = useState<FormState>(EMPTY_FORM);
   const [errors,      setErrors]      = useState<FormErrors>({});
   const [hovered,     setHovered]     = useState<string | null>(null);
+
+  // Fetch real data from backend
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [recursosList, temasList] = await Promise.all([
+          getRecursos(),
+          getTemas(),
+        ]);
+        setRecursos(recursosList.map(backendToFrontendRecurso));
+        setDbTemas(temasList);
+      } catch (err) {
+        console.error('Error al cargar datos del backend:', err);
+      }
+    }
+    loadData();
+  }, []);
+
+  // Dynamically compile TEMAS_OPTS
+  const dynamicTemasOpts = useMemo(() => {
+    return dbTemas.map((t) => ({ value: String(t.id), label: t.nombre }));
+  }, [dbTemas]);
+
+  // Dynamically compile TEMA_LABEL map
+  const dynamicTemaLabel = useMemo(() => {
+    const map: Record<string, string> = {};
+    dbTemas.forEach((t) => {
+      map[String(t.id)] = t.nombre;
+    });
+    return map;
+  }, [dbTemas]);
 
   // ── Filtered list ────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -446,50 +530,39 @@ export default function RecursosPage() {
     return Object.keys(e).length === 0;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validate()) return;
     setSaving(true);
-    setTimeout(() => {
+    try {
+      const payload = frontendToBackendRecurso(form);
       if (editingId) {
+        const res = await updateRecurso(Number(editingId), payload);
+        const updatedFrontend = backendToFrontendRecurso(res);
         setRecursos((prev) =>
-          prev.map((r) =>
-            r.id === editingId
-              ? {
-                  ...r,
-                  titulo:      form.titulo,
-                  url:         form.url,
-                  descripcion: form.descripcion,
-                  tema:        form.tema,
-                  tipo:        form.tipo as TipoRecurso,
-                  vark:        form.vark as EstiloVark,
-                  dificultad:  Number(form.dificultad) as 1 | 2 | 3,
-                }
-              : r,
-          ),
+          prev.map((r) => (r.id === editingId ? updatedFrontend : r))
         );
       } else {
-        const nuevo: Recurso = {
-          id:          Date.now().toString(),
-          titulo:      form.titulo,
-          url:         form.url,
-          descripcion: form.descripcion,
-          tema:        form.tema,
-          tipo:        form.tipo as TipoRecurso,
-          vark:        form.vark as EstiloVark,
-          dificultad:  Number(form.dificultad) as 1 | 2 | 3,
-          estado:      'Pendiente',
-        };
-        setRecursos((prev) => [nuevo, ...prev]);
+        const res = await createRecurso(payload);
+        const newFrontend = backendToFrontendRecurso(res);
+        setRecursos((prev) => [newFrontend, ...prev]);
       }
-      setSaving(false);
       closeModal();
-    }, 700);
+    } catch (err: any) {
+      alert(err.message || 'Error al guardar el recurso.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteId) return;
-    setRecursos((prev) => prev.filter((r) => r.id !== deleteId));
-    setDeleteId(null);
+    try {
+      await deleteRecurso(Number(deleteId));
+      setRecursos((prev) => prev.filter((r) => r.id !== deleteId));
+      setDeleteId(null);
+    } catch (err: any) {
+      alert(err.message || 'Error al eliminar el recurso.');
+    }
   };
 
   // ─── Render ──────────────────────────────────────────────────────────────
@@ -573,7 +646,7 @@ export default function RecursosPage() {
 
         <Select
           label="Tema"
-          options={TEMAS_OPTS}
+          options={dynamicTemasOpts}
           value={filtroTema}
           onChange={setFiltroTema}
           nullable nullLabel="Todos los temas"
@@ -713,7 +786,7 @@ export default function RecursosPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <Select
               label="Tema"
-              options={TEMAS_OPTS}
+              options={dynamicTemasOpts}
               value={form.tema}
               onChange={setField('tema')}
               error={errors.tema}
@@ -917,7 +990,7 @@ function RecursoCard({ recurso: r, hovered, onHover, onLeave, onEdit, onDelete }
                 color: 'var(--text-muted)',
               }}
             >
-              {TEMA_LABEL[r.tema] ?? r.tema}
+              {r.temaNombre ?? r.tema}
             </span>
           </div>
 

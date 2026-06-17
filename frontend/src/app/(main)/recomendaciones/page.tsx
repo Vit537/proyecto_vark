@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play, FileText, Headphones, Code2,
@@ -9,152 +9,39 @@ import {
   Star, Sparkles, X, HelpCircle, CheckCircle, Users,
   MessageSquare, Send, Check,
 } from 'lucide-react';
-import Badge    from '@/components/ui/Badge';
-import Button   from '@/components/ui/Button';
-import Modal    from '@/components/ui/Modal';
+import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
+import Modal from '@/components/ui/Modal';
 import RadarChart from '@/components/ui/RadarChart';
+import { getPerfilVARK, getRecomendaciones, registrarValoracion } from '@/services/valoraciones';
+import { Recomendacion } from '@/types/api';
+import { registrarEventoClickstream } from '@/services/clickstream';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type EstiloVark  = 'V' | 'A' | 'R' | 'K';
+type EstiloVark = 'V' | 'A' | 'R' | 'K';
 type TipoRecurso = 'video' | 'documento' | 'audio' | 'ejercicio';
 
 interface Recurso {
-  id:         string;
-  titulo:     string;
-  url:        string;
-  urlCorta:   string;
+  id: string;
+  titulo: string;
+  url: string;
+  urlCorta: string;
   descripcion: string;
-  tema:       string;
-  tipo:       TipoRecurso;
-  vark:       EstiloVark;
+  tema: string;
+  tipo: TipoRecurso;
+  vark: EstiloVark;
   dificultad: 1 | 2 | 3;
-  rating:     number;
-  afinidad:   number; // 0-100
-  razon:      string;
+  rating: number;
+  afinidad: number; // 0-100
+  razon: string;
 }
-
-// ─── Mock: perfil del estudiante ─────────────────────────────────────────────
-const PERFIL_VARK = { v: 82, a: 45, r: 60, k: 38 };
-const ESTILO_DOMINANTE: EstiloVark = 'V';
-
-// ─── Mock: recursos (12) ──────────────────────────────────────────────────────
-const MOCK_RECURSOS: Recurso[] = [
-  {
-    id: '1',
-    titulo: 'Introducción a Python – Variables y Tipos visualizados',
-    url: 'https://www.youtube.com/watch?v=kqtD5dpn9C8',
-    urlCorta: 'youtube.com',
-    descripcion: 'Video tutorial con animaciones que explica variables, tipos de datos y operadores en Python de forma visual e ilustrativa.',
-    tema: 'Python Básico', tipo: 'video', vark: 'V', dificultad: 1, rating: 5, afinidad: 95,
-    razon: 'Tu perfil muestra una fuerte preferencia Visual (82%). Los recursos en video con animaciones son altamente efectivos para tu estilo de aprendizaje.',
-  },
-  {
-    id: '2',
-    titulo: 'Visualgo – Estructuras de datos animadas',
-    url: 'https://visualgo.net/en',
-    urlCorta: 'visualgo.net',
-    descripcion: 'Herramienta interactiva que anima algoritmos de ordenamiento, árboles y grafos con control de velocidad y pasos detallados.',
-    tema: 'Algoritmos', tipo: 'video', vark: 'V', dificultad: 3, rating: 5, afinidad: 92,
-    razon: 'Recurso altamente visual que permite ver el flujo de los algoritmos paso a paso, alineado con tu preferencia de aprendizaje visual.',
-  },
-  {
-    id: '3',
-    titulo: 'Funciones en Python – Guía visual con diagramas',
-    url: 'https://www.youtube.com/watch?v=9Os0o3wzS_I',
-    urlCorta: 'youtube.com',
-    descripcion: 'Video con diagramas de flujo que explica scope, parámetros, *args, **kwargs y retorno de valores.',
-    tema: 'Funciones', tipo: 'video', vark: 'V', dificultad: 2, rating: 4, afinidad: 90,
-    razon: 'Los diagramas de flujo y la presentación visual del scope hacen de este recurso una elección ideal para perfiles Visuales.',
-  },
-  {
-    id: '4',
-    titulo: 'Guía completa de cadenas en Python – Real Python',
-    url: 'https://realpython.com/python-strings/',
-    urlCorta: 'realpython.com',
-    descripcion: 'Artículo estructurado con tablas, ejemplos de código y referencias cruzadas sobre métodos de cadenas, slicing y formateo.',
-    tema: 'Cadenas', tipo: 'documento', vark: 'R', dificultad: 2, rating: 4, afinidad: 68,
-    razon: 'Tu segundo estilo más fuerte es Lectura/Escritura (60%). Este artículo detallado se complementa bien con tu perfil mixto V+R.',
-  },
-  {
-    id: '5',
-    titulo: 'Programación Orientada a Objetos en Python',
-    url: 'https://realpython.com/python3-object-oriented-programming/',
-    urlCorta: 'realpython.com',
-    descripcion: 'Artículo extenso con diagramas de clases, ejemplos y ejercicios sobre POO: clases, herencia y polimorfismo.',
-    tema: 'POO', tipo: 'documento', vark: 'R', dificultad: 3, rating: 5, afinidad: 65,
-    razon: 'Combina tu preferencia por Lectura con contenido estructurado y diagramas que también estimulan el estilo Visual.',
-  },
-  {
-    id: '6',
-    titulo: 'Podcast: Fundamentos de algoritmos – CS50',
-    url: 'https://podcast.example.com/cs50-algorithms',
-    urlCorta: 'podcast.example.com',
-    descripcion: 'Serie de episodios de audio basados en CS50 de Harvard que narran recursividad, búsqueda binaria y ordenamiento.',
-    tema: 'Algoritmos', tipo: 'audio', vark: 'A', dificultad: 2, rating: 4, afinidad: 52,
-    razon: 'Aunque tu perfil Auditivo (45%) es secundario, este recurso puede complementar tu aprendizaje cuando estudias con la pantalla apagada.',
-  },
-  {
-    id: '7',
-    titulo: 'Exercism – Ejercicios de Python con mentores',
-    url: 'https://exercism.org/tracks/python',
-    urlCorta: 'exercism.org',
-    descripcion: 'Plataforma de ejercicios progresivos con validación automática y retroalimentación de mentores especializados.',
-    tema: 'Estructuras', tipo: 'ejercicio', vark: 'K', dificultad: 2, rating: 5, afinidad: 48,
-    razon: 'Los ejercicios kinestésicos (38% en tu perfil) pueden reforzar lo que aprendes visualmente a través de la práctica activa.',
-  },
-  {
-    id: '8',
-    titulo: 'Python Tutor – Visualiza tu código en ejecución',
-    url: 'https://pythontutor.com/',
-    urlCorta: 'pythontutor.com',
-    descripcion: 'Herramienta online que visualiza paso a paso la ejecución de código Python, mostrando el estado de variables y el call stack.',
-    tema: 'Python Básico', tipo: 'video', vark: 'V', dificultad: 1, rating: 5, afinidad: 94,
-    razon: 'Recurso 100% visual: permite ver el estado del programa en tiempo real. Ideal para perfiles Visuales como el tuyo.',
-  },
-  {
-    id: '9',
-    titulo: 'Automate the Boring Stuff – Capítulo archivos',
-    url: 'https://automatetheboringstuff.com/2e/chapter9/',
-    urlCorta: 'automatetheboringstuff.com',
-    descripcion: 'Capítulo gratuito con ejercicios guiados sobre lectura/escritura de archivos, pathlib, CSV y PDF en Python.',
-    tema: 'Python Básico', tipo: 'documento', vark: 'R', dificultad: 1, rating: 4, afinidad: 63,
-    razon: 'El estilo Lectura/Escritura complementa tu perfil V+R. Este libro online incluye ejemplos visuales y ejercicios prácticos.',
-  },
-  {
-    id: '10',
-    titulo: 'Árboles binarios – CS50 Shorts en video',
-    url: 'https://www.youtube.com/watch?v=mFptHjTT3l8',
-    urlCorta: 'youtube.com',
-    descripcion: 'Video corto de CS50 que explica árboles binarios con animaciones minimalistas y diagramas claros.',
-    tema: 'Estructuras', tipo: 'video', vark: 'V', dificultad: 3, rating: 4, afinidad: 88,
-    razon: 'Las animaciones de CS50 Shorts son reconocidas por su claridad visual, perfectas para estudiantes con perfil Visual dominante.',
-  },
-  {
-    id: '11',
-    titulo: 'Podcast: Recursividad con analogías del mundo real',
-    url: 'https://podcast.example.com/recursion',
-    urlCorta: 'podcast.example.com',
-    descripcion: 'Episodio auditivo que explica la recursividad mediante analogías cotidianas, casos base y ejemplos de factorial y Fibonacci.',
-    tema: 'Funciones', tipo: 'audio', vark: 'A', dificultad: 2, rating: 3, afinidad: 44,
-    razon: 'El componente auditivo puede ser útil para reforzar conceptos abstractos como la recursividad fuera del entorno visual habitual.',
-  },
-  {
-    id: '12',
-    titulo: 'LeetCode – Retos de diccionarios y conjuntos',
-    url: 'https://leetcode.com/tag/hash-table/',
-    urlCorta: 'leetcode.com',
-    descripcion: 'Colección de problemas prácticos enfocados en el uso eficiente de diccionarios y sets con validación inmediata.',
-    tema: 'Estructuras', tipo: 'ejercicio', vark: 'K', dificultad: 2, rating: 3, afinidad: 41,
-    razon: 'La práctica kinestésica en LeetCode complementa el conocimiento visual adquirido. Útil para consolidar con ejercicios reales.',
-  },
-];
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const VARK_CFG = {
-  V: { color: 'var(--vark-v)', bg: 'rgba(59,110,248,0.18)',  border: 'rgba(59,110,248,0.5)',  glow: '0 0 18px rgba(59,110,248,0.4)',  full: 'Visual'      },
-  A: { color: 'var(--vark-a)', bg: 'rgba(167,139,250,0.18)', border: 'rgba(167,139,250,0.5)', glow: '0 0 18px rgba(167,139,250,0.4)', full: 'Auditivo'    },
-  R: { color: 'var(--vark-r)', bg: 'rgba(0,212,255,0.18)',   border: 'rgba(0,212,255,0.5)',   glow: '0 0 18px rgba(0,212,255,0.4)',   full: 'Lectura'     },
-  K: { color: 'var(--vark-k)', bg: 'rgba(0,230,118,0.18)',   border: 'rgba(0,230,118,0.5)',   glow: '0 0 18px rgba(0,230,118,0.4)',   full: 'Kinestésico' },
+  V: { color: 'var(--vark-v)', bg: 'rgba(59,110,248,0.18)', border: 'rgba(59,110,248,0.5)', glow: '0 0 18px rgba(59,110,248,0.4)', full: 'Visual' },
+  A: { color: 'var(--vark-a)', bg: 'rgba(167,139,250,0.18)', border: 'rgba(167,139,250,0.5)', glow: '0 0 18px rgba(167,139,250,0.4)', full: 'Auditivo' },
+  R: { color: 'var(--vark-r)', bg: 'rgba(0,212,255,0.18)', border: 'rgba(0,212,255,0.5)', glow: '0 0 18px rgba(0,212,255,0.4)', full: 'Lectura' },
+  K: { color: 'var(--vark-k)', bg: 'rgba(0,230,118,0.18)', border: 'rgba(0,230,118,0.5)', glow: '0 0 18px rgba(0,230,118,0.4)', full: 'Kinestésico' },
 } as const;
 
 const VARK_BADGE: Record<EstiloVark, 'vark-v' | 'vark-a' | 'vark-r' | 'vark-k'> = {
@@ -164,10 +51,10 @@ const VARK_BADGE: Record<EstiloVark, 'vark-v' | 'vark-a' | 'vark-r' | 'vark-k'> 
 const DIF_LABEL: Record<1 | 2 | 3, string> = { 1: 'Fácil', 2: 'Intermedio', 3: 'Avanzado' };
 
 const TIPO_ICON: Record<TipoRecurso, React.ReactNode> = {
-  video:     <Play      size={20} />,
-  documento: <FileText  size={20} />,
-  audio:     <Headphones size={20} />,
-  ejercicio: <Code2     size={20} />,
+  video: <Play size={20} />,
+  documento: <FileText size={20} />,
+  audio: <Headphones size={20} />,
+  ejercicio: <Code2 size={20} />,
 };
 
 // ─── CU-13 helpers ─────────────────────────────────────────────────────────────
@@ -177,17 +64,17 @@ const TIPO_LABEL: Record<TipoRecurso, string> = {
 
 function getResourceVarkProfile(rec: Recurso): { v: number; a: number; r: number; k: number } {
   const base: Record<TipoRecurso, { v: number; a: number; r: number; k: number }> = {
-    video:     { v: 88, a: 35, r: 42, k: 30 },
-    audio:     { v: 28, a: 90, r: 38, k: 32 },
+    video: { v: 88, a: 35, r: 42, k: 30 },
+    audio: { v: 28, a: 90, r: 38, k: 32 },
     documento: { v: 45, a: 30, r: 88, k: 35 },
     ejercicio: { v: 38, a: 28, r: 42, k: 90 },
   };
   return base[rec.tipo];
 }
 
-function getRazones(rec: Recurso): string[] {
+function getRazones(rec: Recurso, perfil: { v: number; a: number; r: number; k: number }): string[] {
   const varkLower = rec.vark.toLowerCase() as 'v' | 'a' | 'r' | 'k';
-  const pctEstilo = PERFIL_VARK[varkLower];
+  const pctEstilo = perfil[varkLower] || 25;
   return [
     `Tu estilo ${VARK_CFG[rec.vark].full} (${pctEstilo}%) coincide con el formato ${TIPO_LABEL[rec.tipo]}`,
     `El nivel ${DIF_LABEL[rec.dificultad]} es apropiado para tu progreso actual en ${rec.tema}`,
@@ -208,19 +95,19 @@ const MAX_COMENTARIO = 300;
 
 type Coincidencia = 'si' | 'mazo' | 'no';
 const COINCIDENCIA_CFG: Record<Coincidencia, { label: string; color: string; bg: string; border: string }> = {
-  si:   { label: 'Sí',          color: 'var(--success)', bg: 'rgba(0,230,118,0.12)', border: 'rgba(0,230,118,0.4)' },
+  si: { label: 'Sí', color: 'var(--success)', bg: 'rgba(0,230,118,0.12)', border: 'rgba(0,230,118,0.4)' },
   mazo: { label: 'Más o menos', color: 'var(--warning)', bg: 'rgba(255,215,64,0.1)', border: 'rgba(255,215,64,0.4)' },
-  no:   { label: 'No',          color: 'var(--danger)',  bg: 'rgba(255,82,82,0.1)',  border: 'rgba(255,82,82,0.4)'  },
+  no: { label: 'No', color: 'var(--danger)', bg: 'rgba(255,82,82,0.1)', border: 'rgba(255,82,82,0.4)' },
 };
 
 // ─── Stagger variants ─────────────────────────────────────────────────────────
 const containerV = {
   hidden: {},
-  show:   { transition: { staggerChildren: 0.07 } },
+  show: { transition: { staggerChildren: 0.07 } },
 };
 const cardV = {
   hidden: { opacity: 0, y: 22 },
-  show:   { opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.4, 0, 0.2, 1] as [number,number,number,number] } },
+  show: { opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] } },
 };
 
 // ─── Afinidad bar ─────────────────────────────────────────────────────────────
@@ -292,10 +179,10 @@ function SectionLabel({ label }: { label: string }) {
   );
 }
 
-function JustContent({ rec, onClose }: { rec: Recurso; onClose: () => void }) {
-  const cfg        = VARK_CFG[rec.vark];
+function JustContent({ rec, perfil, onClose }: { rec: Recurso; perfil: { v: number; a: number; r: number; k: number }; onClose: () => void }) {
+  const cfg = VARK_CFG[rec.vark];
   const recProfile = getResourceVarkProfile(rec);
-  const razones    = getRazones(rec);
+  const razones = getRazones(rec, perfil);
   const valoracion = getValoracion(rec);
 
   return (
@@ -332,7 +219,7 @@ function JustContent({ rec, onClose }: { rec: Recurso; onClose: () => void }) {
         <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
             <span style={radarLabelStyle}>Tu perfil</span>
-            <RadarChart data={PERFIL_VARK} size={160} />
+            <RadarChart data={perfil} size={160} />
           </div>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
             <span style={radarLabelStyle}>Este recurso</span>
@@ -465,13 +352,13 @@ function JustContent({ rec, onClose }: { rec: Recurso; onClose: () => void }) {
 
 // ─── CU-14: Feedback Panel ──────────────────────────────────────────────────
 function FeedbackPanel({ rec, onClose }: { rec: Recurso; onClose: () => void }) {
-  const [stars,        setStars]        = useState(0);
-  const [hoverStar,    setHoverStar]    = useState(0);
+  const [stars, setStars] = useState(0);
+  const [hoverStar, setHoverStar] = useState(0);
   const [coincidencia, setCoincidencia] = useState<Coincidencia | null>(null);
-  const [comentario,   setComentario]   = useState('');
-  const [selTags,      setSelTags]      = useState<Set<string>>(new Set());
-  const [sending,      setSending]      = useState(false);
-  const [enviado,      setEnviado]      = useState(false);
+  const [comentario, setComentario] = useState('');
+  const [selTags, setSelTags] = useState<Set<string>>(new Set());
+  const [sending, setSending] = useState(false);
+  const [enviado, setEnviado] = useState(false);
 
   const toggleTag = (tag: string) => setSelTags((prev) => {
     const next = new Set(prev);
@@ -482,14 +369,33 @@ function FeedbackPanel({ rec, onClose }: { rec: Recurso; onClose: () => void }) 
   const handleEnviar = async () => {
     if (stars === 0 || sending) return;
     setSending(true);
-    await new Promise((r) => setTimeout(r, 900));
-    setSending(false);
-    setEnviado(true);
-    setTimeout(onClose, 2200);
+    try {
+      const valoracion = (stars >= 4 || coincidencia === 'si') ? 'util' : 'no_util';
+
+      const finalComment = [
+        `Calificación: ${stars}/5 estrellas.`,
+        coincidencia ? `Coincidencia de estilo: ${coincidencia === 'si' ? 'Sí' : coincidencia === 'mazo' ? 'Más o menos' : 'No'}.` : '',
+        selTags.size > 0 ? `Etiquetas: ${Array.from(selTags).join(', ')}.` : '',
+        comentario ? `Comentario adicional: ${comentario}` : ''
+      ].filter(Boolean).join('\n');
+
+      await registrarValoracion({
+        recurso: Number(rec.id),
+        valoracion,
+        comentario: finalComment,
+      });
+
+      setEnviado(true);
+      setTimeout(onClose, 2200);
+    } catch (err: any) {
+      alert(err.message || 'Error al enviar la valoración.');
+    } finally {
+      setSending(false);
+    }
   };
 
   const activeStar = hoverStar || stars;
-  const canSend    = stars > 0 && !sending && !enviado;
+  const canSend = stars > 0 && !sending && !enviado;
 
   return (
     <motion.div
@@ -510,7 +416,7 @@ function FeedbackPanel({ rec, onClose }: { rec: Recurso; onClose: () => void }) 
         initial={{ y: 80, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 80, opacity: 0 }}
-        transition={{ duration: 0.32, ease: [0.4, 0, 0.2, 1] as [number,number,number,number] }}
+        transition={{ duration: 0.32, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] }}
         style={{
           width: '100%', maxWidth: 620, margin: '0 auto',
           background: 'var(--bg-card)', backdropFilter: 'blur(24px)',
@@ -635,7 +541,7 @@ function FeedbackPanel({ rec, onClose }: { rec: Recurso; onClose: () => void }) 
                   <SectionLabel label="Calificación" />
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     {Array.from({ length: 5 }, (_, i) => {
-                      const idx      = i + 1;
+                      const idx = i + 1;
                       const isActive = idx <= activeStar;
                       return (
                         <motion.button
@@ -795,16 +701,16 @@ function RecursoCard({
   recurso: r, saved, onSave, onVer, onHover, onJustificar, onValorar,
 }: {
   recurso: Recurso;
-  saved:   boolean;
-  onSave:  () => void;
-  onVer:   () => void;
+  saved: boolean;
+  onSave: () => void;
+  onVer: () => void;
   onHover: (r: Recurso | null) => void;
   onJustificar: () => void;
   onValorar: () => void;
 }) {
-  const cfg   = VARK_CFG[r.vark];
-  const isYt  = r.url.includes('youtube.com') || r.url.includes('youtu.be');
-  const ytId  = isYt ? r.url.split('v=')[1]?.split('&')[0] : null;
+  const cfg = VARK_CFG[r.vark];
+  const isYt = r.url.includes('youtube.com') || r.url.includes('youtu.be');
+  const ytId = isYt ? r.url.split('v=')[1]?.split('&')[0] : null;
 
   return (
     <motion.div
@@ -976,17 +882,84 @@ function RecursoCard({
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
+function backendToFrontendRecomendacion(rec: Recomendacion): Recurso {
+  let tipo: TipoRecurso = 'documento';
+  if (rec.recurso_tipo === 'video') tipo = 'video';
+  else if (rec.recurso_tipo === 'ejercicio') tipo = 'ejercicio';
+  else if (rec.recurso_tipo === 'documento') tipo = 'documento';
+  else if (rec.recurso_tipo === 'articulo') {
+    tipo = rec.recurso_categoria_vark === 'A' ? 'audio' : 'documento';
+  }
+
+  let dificultad: 1 | 2 | 3 = 1;
+  if (rec.recurso_nivel === 'basico') dificultad = 1;
+  else if (rec.recurso_nivel === 'intermedio') dificultad = 2;
+  else if (rec.recurso_nivel === 'avanzado') dificultad = 3;
+
+  let urlCorta = '';
+  try {
+    urlCorta = new URL(rec.recurso_url).hostname;
+  } catch {
+    urlCorta = rec.recurso_url;
+  }
+
+  return {
+    id: String(rec.recurso),
+    titulo: rec.recurso_titulo,
+    url: rec.recurso_url,
+    urlCorta,
+    descripcion: rec.justificacion || '',
+    tema: rec.tema_nombre || '',
+    tipo,
+    vark: rec.recurso_categoria_vark,
+    dificultad,
+    rating: 4,
+    afinidad: Math.round(rec.puntuacion * 100),
+    razon: rec.justificacion || '',
+  };
+}
+
 export default function RecomendacionesPage() {
-  const [varkActive, setVarkActive]   = useState<Set<EstiloVark>>(new Set([ESTILO_DOMINANTE]));
-  const [saved,      setSaved]        = useState<Set<string>>(new Set());
-  const [hovered,    setHovered]      = useState<Recurso | null>(null);
-  const [panelOpen,  setPanelOpen]    = useState(true);
-  const [modalOpen,  setModalOpen]    = useState(false);
-  const [selected,   setSelected]     = useState<Recurso | null>(null);
-  const [justOpen,    setJustOpen]    = useState(false);
-  const [justRecurso,  setJustRecurso]  = useState<Recurso | null>(null);
-  const [valorOpen,    setValorOpen]   = useState(false);
+  const [perfilVark, setPerfilVark] = useState<{ v: number; a: number; r: number; k: number }>({ v: 25, a: 25, r: 25, k: 25 });
+  const [estiloDominante, setEstiloDominante] = useState<EstiloVark>('V');
+  const [recursos, setRecursos] = useState<Recurso[]>([]);
+
+  const [varkActive, setVarkActive] = useState<Set<EstiloVark>>(new Set());
+  const [saved, setSaved] = useState<Set<string>>(new Set());
+  const [hovered, setHovered] = useState<Recurso | null>(null);
+  const [panelOpen, setPanelOpen] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selected, setSelected] = useState<Recurso | null>(null);
+  const [justOpen, setJustOpen] = useState(false);
+  const [justRecurso, setJustRecurso] = useState<Recurso | null>(null);
+  const [valorOpen, setValorOpen] = useState(false);
   const [valorRecurso, setValorRecurso] = useState<Recurso | null>(null);
+
+  // Fetch student profile & recommendations
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [profile, recs] = await Promise.all([
+          getPerfilVARK(),
+          getRecomendaciones(),
+        ]);
+        if (profile && profile.vector) {
+          setPerfilVark({
+            v: Math.round(profile.vector.V * 100),
+            a: Math.round(profile.vector.A * 100),
+            r: Math.round(profile.vector.R * 100),
+            k: Math.round(profile.vector.K * 100),
+          });
+          setEstiloDominante(profile.estilo_dominante);
+          setVarkActive(new Set([profile.estilo_dominante]));
+        }
+        setRecursos(recs.map(backendToFrontendRecomendacion));
+      } catch (err) {
+        console.error('Error al cargar recomendaciones:', err);
+      }
+    }
+    loadData();
+  }, []);
 
   const toggleVark = (v: EstiloVark) => setVarkActive((prev) => {
     const next = new Set(prev);
@@ -1000,21 +973,44 @@ export default function RecomendacionesPage() {
     return next;
   });
 
-  const openModal = (r: Recurso) => { setSelected(r); setModalOpen(true); };
-  const openJust  = (r: Recurso) => { setJustRecurso(r); setJustOpen(true); };
+  const [modalOpenTime, setModalOpenTime] = useState<number | null>(null);
+
+  const openModal = (r: Recurso) => {
+    setSelected(r);
+    setModalOpen(true);
+    setModalOpenTime(Date.now());
+    registrarEventoClickstream({ recurso: Number(r.id), tipo_evento: 'clic' }).catch(console.error);
+  };
+
+  const closeModal = () => {
+    if (selected && modalOpenTime) {
+      const duracion = Math.round((Date.now() - modalOpenTime) / 1000);
+      if (duracion >= 1) {
+        registrarEventoClickstream({
+          recurso: Number(selected.id),
+          tipo_evento: 'permanencia',
+          duracion_segundos: duracion,
+        }).catch(console.error);
+      }
+    }
+    setModalOpen(false);
+    setModalOpenTime(null);
+  };
+
+  const openJust = (r: Recurso) => { setJustRecurso(r); setJustOpen(true); };
   const openValor = (r: Recurso) => { setValorRecurso(r); setValorOpen(true); };
 
   const filtered = useMemo(
     () =>
-      MOCK_RECURSOS
+      recursos
         .filter((r) => varkActive.size === 0 || varkActive.has(r.vark))
         .sort((a, b) => b.afinidad - a.afinidad),
-    [varkActive],
+    [recursos, varkActive],
   );
 
   const panelRecurso = hovered ?? selected;
 
-  const dominanteCfg = VARK_CFG[ESTILO_DOMINANTE];
+  const dominanteCfg = VARK_CFG[estiloDominante];
 
   return (
     <div
@@ -1115,7 +1111,7 @@ export default function RecomendacionesPage() {
           </span>
           <div style={{ display: 'flex', gap: 8 }}>
             {(['V', 'A', 'R', 'K'] as EstiloVark[]).map((v) => {
-              const cfg    = VARK_CFG[v];
+              const cfg = VARK_CFG[v];
               const active = varkActive.has(v);
               return (
                 <motion.button
@@ -1232,7 +1228,7 @@ export default function RecomendacionesPage() {
               </p>
               <button
                 type="button"
-                onClick={() => setVarkActive(new Set([ESTILO_DOMINANTE]))}
+                onClick={() => setVarkActive(new Set([estiloDominante]))}
                 style={{
                   padding: '8px 18px', borderRadius: 999,
                   border: '1px solid rgba(59,110,248,0.35)',
@@ -1259,7 +1255,7 @@ export default function RecomendacionesPage() {
             initial={{ width: 0, opacity: 0 }}
             animate={{ width: 288, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] as [number,number,number,number] }}
+            transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] }}
             style={{
               flexShrink: 0, overflow: 'hidden',
               borderLeft: '1px solid var(--border-glass)',
@@ -1277,13 +1273,13 @@ export default function RecomendacionesPage() {
               {/* Radar */}
               <div>
                 <p style={panelLabelStyle}>Tu perfil VARK</p>
-                <RadarChart data={PERFIL_VARK} size={220} />
+                <RadarChart data={perfilVark} size={220} />
 
                 {/* VARK % bars */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
                   {(['V', 'A', 'R', 'K'] as EstiloVark[]).map((v) => {
                     const cfg = VARK_CFG[v];
-                    const pct = PERFIL_VARK[v.toLowerCase() as 'v' | 'a' | 'r' | 'k'];
+                    const pct = perfilVark[v.toLowerCase() as 'v' | 'a' | 'r' | 'k'];
                     return (
                       <div key={v} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span
@@ -1447,7 +1443,7 @@ export default function RecomendacionesPage() {
       ═══════════════════════════════════════════════════════════════ */}
       <Modal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={closeModal}
         title={selected?.titulo ?? ''}
         maxWidth={620}
       >
@@ -1525,6 +1521,9 @@ export default function RecomendacionesPage() {
                 href={selected.url}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => {
+                  registrarEventoClickstream({ recurso: Number(selected.id), tipo_evento: 'clic' }).catch(console.error);
+                }}
                 style={{
                   flex: 1, display: 'inline-flex', alignItems: 'center',
                   justifyContent: 'center', gap: 8,
@@ -1578,7 +1577,7 @@ export default function RecomendacionesPage() {
         maxWidth={680}
       >
         {justRecurso && (
-          <JustContent rec={justRecurso} onClose={() => setJustOpen(false)} />
+          <JustContent rec={justRecurso} perfil={perfilVark} onClose={() => setJustOpen(false)} />
         )}
       </Modal>
     </div>

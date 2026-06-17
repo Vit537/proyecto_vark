@@ -121,9 +121,20 @@ export default function LoginPage() {
       }
 
       const data = await res.json();
-      const role: string = data?.user?.role ?? data?.role ?? 'estudiante';
+      
+      if (data?.access) {
+        localStorage.setItem('access_token', data.access);
+      }
+      if (data?.refresh) {
+        localStorage.setItem('refresh_token', data.refresh);
+      }
+      if (data?.usuario) {
+        localStorage.setItem('usuario', JSON.stringify(data.usuario));
+      }
 
-      if (role === 'admin') {
+      const role: string = data?.usuario?.rol ?? data?.user?.role ?? data?.role ?? 'estudiante';
+
+      if (role === 'admin' || role === 'administrador') {
         router.push('/admin/configuracion');
       } else {
         router.push('/dashboard');

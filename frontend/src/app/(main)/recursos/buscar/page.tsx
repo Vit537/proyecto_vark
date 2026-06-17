@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Play, FileText, Headphones, Code2,
   ExternalLink, Star, X, Filter, PackageOpen,
 } from 'lucide-react';
 import Badge  from '@/components/ui/Badge';
+import { getRecursos } from '@/services/recursos';
+import { registrarEventoClickstream } from '@/services/clickstream';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type TipoRecurso = 'video' | 'documento' | 'audio' | 'ejercicio';
@@ -391,7 +393,10 @@ function RecursoCard({ recurso: r, query }: { recurso: Recurso; query: string })
               href={r.url}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                registrarEventoClickstream({ recurso: Number(r.id), tipo_evento: 'clic' }).catch(console.error);
+              }}
               style={{
                 display: 'flex', alignItems: 'center',
                 color: 'var(--accent-blue)', opacity: 0.7,
@@ -449,11 +454,60 @@ const containerVariants = {
   show:   { transition: { staggerChildren: 0.04 } },
 };
 
+function backendToFrontendRecurso(r: any): Recurso {
+  let tipo: TipoRecurso = 'documento';
+  if (r.tipo_formato === 'video') tipo = 'video';
+  else if (r.tipo_formato === 'ejercicio') tipo = 'ejercicio';
+  else if (r.tipo_formato === 'documento') tipo = 'documento';
+  else if (r.tipo_formato === 'articulo') {
+    tipo = r.categoria_vark === 'A' ? 'audio' : 'documento';
+  }
+
+  let dificultad: Dificultad = 1;
+  if (r.nivel_complejidad === 'basico') dificultad = 1;
+  else if (r.nivel_complejidad === 'intermedio') dificultad = 2;
+  else if (r.nivel_complejidad === 'avanzado') dificultad = 3;
+
+  let urlCorta = '';
+  try {
+    urlCorta = new URL(r.url).hostname;
+  } catch {
+    urlCorta = r.url;
+  }
+
+  return {
+    id: String(r.id),
+    titulo: r.titulo,
+    url: r.url,
+    urlCorta,
+    descripcion: r.descripcion || '',
+    tema: r.tema_nombre || '',
+    tipo,
+    vark: r.categoria_vark,
+    dificultad,
+    rating: 4, // Default rating
+  };
+}
+
 export default function BuscarPage() {
+  const [recursos,   setRecursos]   = useState<Recurso[]>([]);
   const [query,      setQuery]      = useState('');
   const [varkActive, setVarkActive] = useState<Set<EstiloVark>>(new Set());
   const [difActive,  setDifActive]  = useState<Set<Dificultad>>(new Set());
   const [tipoActive, setTipoActive] = useState<Set<TipoRecurso>>(new Set());
+
+  // Load real resources on mount
+  useEffect(() => {
+    async function loadResources() {
+      try {
+        const res = await getRecursos();
+        setRecursos(res.map(backendToFrontendRecurso));
+      } catch (err) {
+        console.error('Error al cargar recursos del buscador:', err);
+      }
+    }
+    loadResources();
+  }, []);
 
   // Toggles
   const toggleVark = (v: EstiloVark) => setVarkActive((prev) => {
@@ -503,14 +557,14 @@ export default function BuscarPage() {
   // Filtered results
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return MOCK.filter((r) => {
+    return recursos.filter((r) => {
       if (q && !r.titulo.toLowerCase().includes(q) && !r.descripcion.toLowerCase().includes(q)) return false;
       if (varkActive.size && !varkActive.has(r.vark))  return false;
       if (difActive.size  && !difActive.has(r.dificultad)) return false;
       if (tipoActive.size && !tipoActive.has(r.tipo))  return false;
       return true;
     });
-  }, [query, varkActive, difActive, tipoActive]);
+  }, [recursos, query, varkActive, difActive, tipoActive]);
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (

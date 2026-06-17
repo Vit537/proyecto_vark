@@ -6,24 +6,16 @@ import {
   ArrowRight, CheckCircle, XCircle, RotateCcw,
   ArrowLeft, X, AlertTriangle, BookOpen, Clock, HelpCircle,
 } from 'lucide-react';
+import { useParams } from 'next/navigation';
 import BackgroundPattern from '@/components/layout/BackgroundPattern';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
+import { getQuizPreguntas, responderQuiz } from '@/services/quizzes';
+import { getTemas } from '@/services/temas';
+import { ResultadoQuiz, PreguntaQuiz } from '@/types/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface Opcion {
-  id: string;
-  texto: string;
-}
-
-interface Pregunta {
-  id: string;
-  enunciado: string;
-  opciones: Opcion[];
-  correctaId: string;
-}
-
 interface QuizMeta {
   titulo: string;
   tema: string;
@@ -32,79 +24,13 @@ interface QuizMeta {
   tiempoEstimado: string;
 }
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-const QUIZ_META: QuizMeta = {
-  titulo:         'Quiz: Cadenas de texto',
-  tema:           'Cadenas',
-  descripcion:    'Evalúa tu comprensión sobre manipulación de cadenas, métodos integrados y operaciones básicas en Python.',
-  dificultad:     'Media',
-  tiempoEstimado: '~8 min',
-};
-
-const PREGUNTAS: Pregunta[] = [
-  {
-    id: '1',
-    enunciado: '¿Qué método de cadena elimina los espacios en blanco al inicio y al final de un string en Python?',
-    opciones: [
-      { id: 'a', texto: 'strip()' },
-      { id: 'b', texto: 'trim()' },
-      { id: 'c', texto: 'clean()' },
-      { id: 'd', texto: 'remove()' },
-    ],
-    correctaId: 'a',
-  },
-  {
-    id: '2',
-    enunciado: '¿Cuál es el resultado de la expresión "hola" * 3 en Python?',
-    opciones: [
-      { id: 'a', texto: '"hola hola hola"' },
-      { id: 'b', texto: '"holaholahola"' },
-      { id: 'c', texto: 'Error de tipo' },
-      { id: 'd', texto: '"hola3"' },
-    ],
-    correctaId: 'b',
-  },
-  {
-    id: '3',
-    enunciado: '¿Qué índice tiene el último carácter de la cadena "Python" si se accede con índice negativo?',
-    opciones: [
-      { id: 'a', texto: '-6' },
-      { id: 'b', texto: '5' },
-      { id: 'c', texto: '-1' },
-      { id: 'd', texto: '6' },
-    ],
-    correctaId: 'c',
-  },
-  {
-    id: '4',
-    enunciado: '¿Cuál de los siguientes métodos verifica si todos los caracteres de una cadena son letras?',
-    opciones: [
-      { id: 'a', texto: 'isalpha()' },
-      { id: 'b', texto: 'isword()' },
-      { id: 'c', texto: 'ischar()' },
-      { id: 'd', texto: 'istext()' },
-    ],
-    correctaId: 'a',
-  },
-  {
-    id: '5',
-    enunciado: '¿Qué produce el slice "Python"[1:4] en Python?',
-    opciones: [
-      { id: 'a', texto: '"Pyt"' },
-      { id: 'b', texto: '"yth"' },
-      { id: 'c', texto: '"ytho"' },
-      { id: 'd', texto: '"tho"' },
-    ],
-    correctaId: 'b',
-  },
-];
-
 // ─── Difficulty badge ─────────────────────────────────────────────────────────
 const DIFICULTAD_VARIANT = {
   'Fácil': 'success',
   'Media': 'warning',
   'Difícil': 'danger',
 } as const;
+
 
 // ─── Animated counter ─────────────────────────────────────────────────────────
 function AnimatedNumber({ to, duration = 1.2 }: { to: number; duration?: number }) {
@@ -152,44 +78,113 @@ function CircularProgress({ pct, color }: { pct: number; color: string }) {
 type Screen = 'start' | 'question' | 'result';
 
 export default function QuizPage() {
-  const [screen,      setScreen]      = useState<Screen>('start');
-  const [currentIdx,  setCurrentIdx]  = useState(0);
-  const [respuestas,  setRespuestas]  = useState<Record<string, string>>({});   // preguntaId → opcionId elegida
+  const { id: temaIdRaw } = useParams() as { id: string };
+  const temaId = Number(temaIdRaw);
+
+  const [screen, setScreen] = useState<Screen>('start');
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [respuestas, setRespuestas] = useState<Record<string, string>>({});   // preguntaId → opcionId elegida
   const [selectedOpt, setSelectedOpt] = useState<string | null>(null);
-  const [direction,   setDirection]   = useState(1);   // 1 = fwd, -1 = bwd
-  const [exitModal,   setExitModal]   = useState(false);
+  const [direction, setDirection] = useState(1);   // 1 = fwd, -1 = bwd
+  const [exitModal, setExitModal] = useState(false);
   const [calculating, setCalculating] = useState(false);
 
-  const total    = PREGUNTAS.length;
-  const pregunta = PREGUNTAS[currentIdx];
-  const isLast   = currentIdx === total - 1;
+  // Dynamic state
+  const [preguntas, setPreguntas] = useState<PreguntaQuiz[]>([]);
+  const [quizMeta, setQuizMeta] = useState<QuizMeta>({
+    titulo: 'Cargando quiz...',
+    tema: '...',
+    descripcion: 'Obteniendo detalles del quiz desde el servidor...',
+    dificultad: 'Media',
+    tiempoEstimado: '~10 min',
+  });
+  const [resultado, setResultado] = useState<ResultadoQuiz | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch quiz and meta
+  useEffect(() => {
+    async function loadQuizData() {
+      try {
+        setLoading(true);
+        // Load questions
+        const quizRes = await getQuizPreguntas(temaId);
+        setPreguntas(quizRes.preguntas);
+
+        // Load meta by fetching all themes and matching
+        const temas = await getTemas();
+        const curTema = temas.find(t => t.id === temaId);
+        if (curTema) {
+          setQuizMeta({
+            titulo: `Quiz: ${curTema.nombre}`,
+            tema: curTema.nombre,
+            descripcion: curTema.descripcion || 'Evalúa tu comprensión sobre este tema de programación.',
+            dificultad: 'Media', // Default difficulty
+            tiempoEstimado: `~${quizRes.preguntas.length * 1.2} min`,
+          });
+        } else {
+          setQuizMeta(prev => ({
+            ...prev,
+            titulo: `Quiz: Evaluación`,
+            tiempoEstimado: `~${quizRes.preguntas.length * 1.2} min`,
+          }));
+        }
+      } catch (err: any) {
+        console.error(err);
+        setError(err.message || 'Error al cargar el quiz.');
+        setQuizMeta(prev => ({
+          ...prev,
+          titulo: 'Quiz no disponible',
+          descripcion: err.message || 'No hay preguntas disponibles o el tema no fue encontrado.',
+        }));
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadQuizData();
+  }, [temaId]);
+
+  const total = preguntas.length;
+  const pregunta = preguntas[currentIdx];
+  const isLast = currentIdx === total - 1;
 
   // ── Score ──────────────────────────────────────────────────────────────────
-  const correctas = PREGUNTAS.filter(
-    (p) => respuestas[p.id] === p.correctaId,
-  ).length;
-  const pct = Math.round((correctas / total) * 100);
+  const pct = resultado ? Math.round(resultado.puntaje * 100) : 0;
+  const correctas = resultado ? resultado.respuestas_correctas : 0;
   const resultColor =
     pct >= 70 ? 'var(--success)' :
-    pct >= 40 ? 'var(--warning)' :
-    'var(--danger)';
+      pct >= 40 ? 'var(--warning)' :
+        'var(--danger)';
 
   // ── Handlers ───────────────────────────────────────────────────────────────
-  const handleNext = () => {
-    if (!selectedOpt) return;
+  const handleNext = async () => {
+    if (!selectedOpt || !pregunta) return;
     const updated = { ...respuestas, [pregunta.id]: selectedOpt };
     setRespuestas(updated);
 
     if (isLast) {
       setCalculating(true);
-      setTimeout(() => {
-        setCalculating(false);
+      try {
+        // Send answers to backend
+        const answersPayload = {
+          tema_id: temaId,
+          respuestas: Object.entries(updated).map(([qId, oId]) => ({
+            pregunta_id: Number(qId),
+            opcion_id: Number(oId),
+          })),
+        };
+        const res = await responderQuiz(answersPayload);
+        setResultado(res);
         setScreen('result');
-      }, 900);
+      } catch (err: any) {
+        alert(err.message || 'Error al enviar las respuestas.');
+      } finally {
+        setCalculating(false);
+      }
       return;
     }
     setDirection(1);
-    setSelectedOpt(respuestas[PREGUNTAS[currentIdx + 1]?.id] ?? null);
+    setSelectedOpt(respuestas[preguntas[currentIdx + 1]?.id] ?? null);
     setCurrentIdx((i) => i + 1);
   };
 
@@ -198,19 +193,22 @@ export default function QuizPage() {
     setSelectedOpt(null);
     setCurrentIdx(0);
     setDirection(1);
+    setResultado(null);
     setScreen('start');
   };
 
   // Pre-fill selection if revisiting
   useEffect(() => {
-    setSelectedOpt(respuestas[pregunta?.id] ?? null);
-  }, [currentIdx]);
+    if (pregunta) {
+      setSelectedOpt(respuestas[pregunta.id] ?? null);
+    }
+  }, [currentIdx, pregunta]);
 
   // ── Slide variants ─────────────────────────────────────────────────────────
   const slideVariants = {
-    enter:  (d: number) => ({ opacity: 0, x: d > 0 ? 60 : -60 }),
-    center: { opacity: 1, x: 0, transition: { duration: 0.32, ease: [0.4, 0, 0.2, 1] as [number,number,number,number] } },
-    exit:   (d: number) => ({ opacity: 0, x: d > 0 ? -60 : 60, transition: { duration: 0.22 } }),
+    enter: (d: number) => ({ opacity: 0, x: d > 0 ? 60 : -60 }),
+    center: { opacity: 1, x: 0, transition: { duration: 0.32, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] } },
+    exit: (d: number) => ({ opacity: 0, x: d > 0 ? -60 : 60, transition: { duration: 0.22 } }),
   };
 
   // ── Background wrapper ─────────────────────────────────────────────────────
@@ -292,7 +290,7 @@ export default function QuizPage() {
                     margin: '0 0 28px',
                   }}
                 >
-                  {QUIZ_META.descripcion}
+                  {quizMeta.descripcion}
                 </p>
 
                 {/* Meta chips */}
@@ -450,22 +448,24 @@ export default function QuizPage() {
                       {/* Options */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         {pregunta.opciones.map((opcion, oi) => {
-                          const isSelected = selectedOpt === opcion.id;
+                          const optionIdStr = String(opcion.id);
+                          const isSelected = selectedOpt === optionIdStr;
+                          const letterLabel = String.fromCharCode(65 + oi); // 'A', 'B', 'C', 'D'
                           return (
                             <motion.button
-                              key={opcion.id}
+                              key={optionIdStr}
                               type="button"
-                              onClick={() => setSelectedOpt(opcion.id)}
+                              onClick={() => setSelectedOpt(optionIdStr)}
                               initial={{ opacity: 0, x: -10 }}
                               animate={{ opacity: 1, x: 0 }}
                               transition={{ delay: oi * 0.06, duration: 0.25 }}
                               whileHover={
                                 !isSelected
                                   ? {
-                                      borderColor: 'rgba(59,110,248,0.5)',
-                                      boxShadow: '0 0 16px rgba(59,110,248,0.15)',
-                                      background: 'rgba(59,110,248,0.06)',
-                                    }
+                                    borderColor: 'rgba(59,110,248,0.5)',
+                                    boxShadow: '0 0 16px rgba(59,110,248,0.15)',
+                                    background: 'rgba(59,110,248,0.06)',
+                                  }
                                   : {}
                               }
                               whileTap={{ scale: 0.98 }}
@@ -501,7 +501,7 @@ export default function QuizPage() {
                                   transition: 'border-color 0.2s, background 0.2s, color 0.2s',
                                 }}
                               >
-                                {opcion.id.toUpperCase()}
+                                {letterLabel}
                               </span>
                               <span
                                 style={{
@@ -595,7 +595,7 @@ export default function QuizPage() {
                       >
                         {pct >= 70
                           ? <CheckCircle size={28} color="var(--success)" />
-                          : <XCircle    size={28} color="var(--danger)"  />
+                          : <XCircle size={28} color="var(--danger)" />
                         }
                       </motion.div>
                       <motion.span
@@ -665,11 +665,12 @@ export default function QuizPage() {
                     paddingRight: 4,
                   }}
                 >
-                  {PREGUNTAS.map((p, idx) => {
-                    const elegida    = respuestas[p.id];
-                    const acertada   = elegida === p.correctaId;
-                    const opElegida  = p.opciones.find((o) => o.id === elegida);
-                    const opCorrecta = p.opciones.find((o) => o.id === p.correctaId);
+                  {resultado?.respuestas_json.map((resp, idx) => {
+                    const p = preguntas.find((x) => x.id === resp.pregunta_id);
+                    if (!p) return null;
+                    const elegida = String(resp.opcion_id);
+                    const acertada = resp.es_correcta;
+                    const opElegida = p.opciones.find((o) => String(o.id) === elegida);
 
                     return (
                       <motion.div
@@ -687,7 +688,7 @@ export default function QuizPage() {
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                           {acertada
                             ? <CheckCircle size={15} color="var(--success)" style={{ flexShrink: 0, marginTop: 2 }} />
-                            : <XCircle    size={15} color="var(--danger)"  style={{ flexShrink: 0, marginTop: 2 }} />
+                            : <XCircle size={15} color="var(--danger)" style={{ flexShrink: 0, marginTop: 2 }} />
                           }
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <p
@@ -708,15 +709,7 @@ export default function QuizPage() {
                                     fontFamily: 'var(--font-dm-sans)',
                                   }}
                                 >
-                                  Tu respuesta: <strong>{opElegida?.texto ?? '—'}</strong>
-                                </span>
-                                <span
-                                  style={{
-                                    fontSize: '0.75rem', color: 'var(--success)',
-                                    fontFamily: 'var(--font-dm-sans)',
-                                  }}
-                                >
-                                  Correcta: <strong>{opCorrecta?.texto}</strong>
+                                  Tu respuesta (incorrecta): <strong>{opElegida?.texto ?? '—'}</strong>
                                 </span>
                               </div>
                             )}
@@ -727,7 +720,7 @@ export default function QuizPage() {
                                   fontFamily: 'var(--font-dm-sans)',
                                 }}
                               >
-                                ✓ {opCorrecta?.texto}
+                                ✓ {opElegida?.texto}
                               </span>
                             )}
                           </div>
