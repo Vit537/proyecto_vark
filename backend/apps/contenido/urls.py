@@ -14,6 +14,7 @@ from .views import (
     SugerenciaIAAprobarView,
     SugerenciaIAListView,
     SugerenciaIARechazarView,
+    SugerirPreguntasIAView,
     SugerirRecursosIAView,
     TemaDetailView,
     TemaListCreateView,
@@ -39,6 +40,7 @@ urlpatterns = [
 
     # CU-05: Banco de preguntas
     path('preguntas/', PreguntaListCreateView.as_view(), name='pregunta-list-create'),
+    path('preguntas/sugerir/', SugerirPreguntasIAView.as_view(), name='pregunta-sugerir-ia'),
     path('preguntas/<int:pk>/', PreguntaDetailView.as_view(), name='pregunta-detail'),
 
     # CU-07: Quizzes

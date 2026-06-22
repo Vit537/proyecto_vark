@@ -110,3 +110,103 @@ def sugerir_recursos_ia(tema_nombre, categoria_vark, nivel='basico', cantidad=8)
     except Exception as exc:
         logger.error('Error al sugerir recursos via Groq: %s', exc)
         raise
+
+
+# ─── Fase 4: Generación de preguntas de quiz con IA ───────────────────────────
+
+PROMPT_PREGUNTAS_QUIZ = """Eres un experto en didáctica de la programación.
+
+Genera exactamente {cantidad} preguntas de opción múltiple en español para evaluar a estudiantes universitarios sobre el tema "{tema}".
+
+Parámetros:
+- Tema: {tema}
+- Nivel de dificultad: {dificultad}
+
+Reglas:
+- Cada pregunta debe tener exactamente 4 opciones.
+- Exactamente UNA opción correcta; las otras 3 deben ser distractores plausibles.
+- Incluye una breve "explicacion" (retroalimentación) que justifique la respuesta correcta.
+- Las preguntas deben ser claras, sin ambigüedad, y acordes a la dificultad indicada.
+- Todo en español.
+
+Responde ÚNICAMENTE con JSON válido, sin bloques markdown, con esta estructura exacta:
+{{
+  "preguntas": [
+    {{
+      "enunciado": "texto de la pregunta",
+      "explicacion": "por qué la respuesta correcta es correcta",
+      "opciones": [
+        {{"texto": "opción 1", "es_correcta": true}},
+        {{"texto": "opción 2", "es_correcta": false}},
+        {{"texto": "opción 3", "es_correcta": false}},
+        {{"texto": "opción 4", "es_correcta": false}}
+      ]
+    }}
+  ]
+}}"""
+
+DIFICULTAD_NOMBRE = {'facil': 'Fácil', 'media': 'Media', 'dificil': 'Difícil'}
+
+
+def generar_preguntas_quiz(tema_nombre, dificultad='facil', cantidad=5):
+    """
+    Llama a Groq para generar preguntas de quiz candidatas (no las guarda).
+
+    Returns:
+        list[dict] — cada una: {enunciado, explicacion, opciones:[{texto, es_correcta}]}
+
+    Lanza una excepción si la IA falla o devuelve un formato inválido
+    (el frontend mantiene la creación manual como respaldo).
+    """
+    cantidad = max(1, min(10, cantidad))
+    prompt = PROMPT_PREGUNTAS_QUIZ.format(
+        tema=tema_nombre,
+        dificultad=DIFICULTAD_NOMBRE.get(dificultad, dificultad),
+        cantidad=cantidad,
+    )
+
+    from groq import Groq
+    client = Groq(api_key=settings.GROQ_API_KEY)
+
+    response = client.chat.completions.create(
+        model=settings.GROQ_MODEL,
+        messages=[{'role': 'user', 'content': prompt}],
+        temperature=0.6,
+        max_tokens=3500,
+    )
+
+    content = response.choices[0].message.content.strip()
+    if '```json' in content:
+        content = content.split('```json')[1].split('```')[0].strip()
+    elif '```' in content:
+        content = content.split('```')[1].split('```')[0].strip()
+
+    data = json.loads(content)
+    preguntas = data.get('preguntas', [])
+    if not preguntas:
+        raise ValueError('La IA no devolvió preguntas.')
+
+    # Validar/normalizar: 4 opciones y exactamente 1 correcta
+    validadas = []
+    for p in preguntas:
+        opciones = p.get('opciones', [])
+        if len(opciones) < 2:
+            continue
+        correctas = [o for o in opciones if o.get('es_correcta')]
+        if len(correctas) != 1:
+            # Forzar la primera como correcta si la IA no marcó exactamente una
+            for i, o in enumerate(opciones):
+                o['es_correcta'] = (i == 0)
+        validadas.append({
+            'enunciado': p.get('enunciado', '').strip(),
+            'explicacion': p.get('explicacion', '').strip(),
+            'opciones': [
+                {'texto': str(o.get('texto', '')).strip(), 'es_correcta': bool(o.get('es_correcta'))}
+                for o in opciones
+            ],
+        })
+
+    if not validadas:
+        raise ValueError('La IA no devolvió preguntas válidas.')
+
+    return validadas

@@ -177,6 +177,13 @@ class Pregunta(models.Model):
         (DIFICULTAD_DIFICIL, 'Difícil'),
     ]
 
+    ORIGEN_MANUAL = 'manual'
+    ORIGEN_IA = 'ia'
+    ORIGEN_CHOICES = [
+        (ORIGEN_MANUAL, 'Manual'),
+        (ORIGEN_IA, 'Generada por IA'),
+    ]
+
     enunciado = models.TextField()
     tema = models.ForeignKey(
         Tema, on_delete=models.CASCADE, related_name='preguntas', db_column='tema_id'
@@ -188,6 +195,9 @@ class Pregunta(models.Model):
     nivel_dificultad = models.CharField(
         max_length=10, choices=DIFICULTAD_CHOICES, default=DIFICULTAD_FACIL
     )
+    # Fase 4: trazabilidad de IA y retroalimentación (RP06)
+    origen = models.CharField(max_length=10, choices=ORIGEN_CHOICES, default=ORIGEN_MANUAL)
+    explicacion = models.TextField(blank=True, default='')
     activo = models.BooleanField(default=True)
     creado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,

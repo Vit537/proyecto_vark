@@ -27,6 +27,7 @@ from .serializers import (
     RecursoSerializer,
     RespuestaQuizSerializer,
     ResultadoQuizSerializer,
+    SolicitarPreguntasIASerializer,
     SolicitarSugerenciaIASerializer,
     SugerenciaIASerializer,
     SubtemaSerializer,
@@ -359,6 +360,42 @@ class PreguntaDetailView(APIView):
         pregunta.activo = False
         pregunta.save(update_fields=['activo'])
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ─── Fase 4: Generar preguntas de quiz con IA ────────────────────────────────
+
+class SugerirPreguntasIAView(APIView):
+    """POST /contenido/preguntas/sugerir/ → candidatas IA (no se guardan)."""
+    permission_classes = [EsDocenteOAdmin]
+
+    def post(self, request):
+        serializer = SolicitarPreguntasIASerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        tema = Tema.objects.get(pk=data['tema_id'])
+
+        try:
+            from .services.ia_service import generar_preguntas_quiz
+            preguntas = generar_preguntas_quiz(
+                tema_nombre=tema.nombre,
+                dificultad=data['dificultad'],
+                cantidad=data['cantidad'],
+            )
+        except Exception as exc:
+            return Response(
+                {'detail': f'La IA no está disponible. Puedes crear preguntas manualmente. ({exc})'},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        return Response({
+            'tema': tema.id,
+            'tema_nombre': tema.nombre,
+            'dificultad': data['dificultad'],
+            'total': len(preguntas),
+            'preguntas': preguntas,  # {enunciado, explicacion, opciones:[{texto, es_correcta}]}
+        }, status=status.HTTP_200_OK)
 
 
 # ─── CU-07: Quizzes ──────────────────────────────────────────────────────────

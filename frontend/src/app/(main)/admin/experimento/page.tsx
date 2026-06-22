@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -15,6 +15,8 @@ import Badge  from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal  from '@/components/ui/Modal';
 import Select from '@/components/ui/Select';
+import { listarExperimentos, resultadosExperimento, actualizarExperimento } from '@/lib/api/analitica';
+import type { GrupoResultados } from '@/lib/api/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -38,8 +40,18 @@ interface WeekPoint {
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
-const MOCK_GROUP_A: GroupMetrics = { estudiantes: 142, recursos: 18.4, completitud: 74, satisfaccion: 4.1, tiempo: 38 };
-const MOCK_GROUP_B: GroupMetrics = { estudiantes: 58,  recursos: 22.7, completitud: 83, satisfaccion: 4.6, tiempo: 47 };
+const INIT_GROUP_A: GroupMetrics = { estudiantes: 142, recursos: 18.4, completitud: 74, satisfaccion: 4.1, tiempo: 38 };
+const INIT_GROUP_B: GroupMetrics = { estudiantes: 58,  recursos: 22.7, completitud: 83, satisfaccion: 4.6, tiempo: 47 };
+
+function fromGrupoResultados(g: GrupoResultados): GroupMetrics {
+  return {
+    estudiantes:  g.total,
+    recursos:     g.total_clics,
+    completitud:  0,
+    satisfaccion: g.promedio_puntaje ?? 0,
+    tiempo:       0,
+  };
+}
 
 const CHART_DATA: Record<MetricKey, WeekPoint[]> = {
   completitud: [
@@ -201,17 +213,43 @@ export default function ExperimentoPage() {
   const [metric, setMetric]         = useState<MetricKey>('completitud');
   const [confirmOp, setConfirmOp]   = useState<ConfirmOp>(null);
   const [chartKey, setChartKey]     = useState(0);
+  const [grupoA, setGrupoA]         = useState<GroupMetrics>(INIT_GROUP_A);
+  const [grupoB, setGrupoB]         = useState<GroupMetrics>(INIT_GROUP_B);
+  const [expId, setExpId]           = useState<number | null>(null);
+
+  // CU-20: Cargar experimento y resultados al montar
+  useEffect(() => {
+    let mounted = true;
+    listarExperimentos()
+      .then((exps) => {
+        if (!mounted || exps.length === 0) return;
+        const exp = exps[0];
+        setExpId(exp.id);
+        setStatus(exp.estado === 'activo' ? 'activo' : 'finalizado');
+        return resultadosExperimento(exp.id);
+      })
+      .then((data) => {
+        if (!mounted || !data) return;
+        setGrupoA(fromGrupoResultados(data.resultados.control));
+        setGrupoB(fromGrupoResultados(data.resultados.experimental));
+      })
+      .catch(() => {}); // Mantener datos mock como fallback
+    return () => { mounted = false; };
+  }, []);
 
   const groupAPct = 100 - groupBPct;
   const chartData = useMemo(() => CHART_DATA[metric], [metric]);
   const unit      = METRIC_UNIT[metric];
 
   // Determine which group is "winning" per metric
-  const winnerA = MOCK_GROUP_A.completitud > MOCK_GROUP_B.completitud;
   const highlight = (a: number, b: number): 'a' | 'b' => a >= b ? 'a' : 'b';
 
-  const handleToggleConfirm = () => {
-    setStatus((s) => s === 'activo' ? 'pausado' : 'activo');
+  const handleToggleConfirm = async () => {
+    const nuevoEstado: 'activo' | 'finalizado' = status === 'activo' ? 'finalizado' : 'activo';
+    if (expId != null) {
+      try { await actualizarExperimento(expId, { estado: nuevoEstado }); } catch { /* keep local */ }
+    }
+    setStatus(nuevoEstado);
     setConfirmOp(null);
   };
 
@@ -243,8 +281,6 @@ export default function ExperimentoPage() {
     : 'Activar el experimento reanudará la asignación aleatoria de estudiantes a los grupos A y B según la distribución configurada.';
 
   const { badge: statusBadge, label: statusLabel } = STATUS_CFG[status];
-
-  void winnerA; // suppress unused warning
 
   return (
     <motion.div
@@ -450,21 +486,21 @@ export default function ExperimentoPage() {
                 <Users size={16} color={COLOR_A} style={{ flexShrink: 0 }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-muted)' }}>Estudiantes</div>
-                  <div style={{ fontFamily: 'var(--font-syne), Syne, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: 'var(--text-primary)' }}>{MOCK_GROUP_A.estudiantes}</div>
+                  <div style={{ fontFamily: 'var(--font-syne), Syne, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: 'var(--text-primary)' }}>{grupoA.estudiantes}</div>
                 </div>
               </motion.div>
               <motion.div variants={STAGGER.item} style={{ ...CARD, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <BookOpen size={16} color={COLOR_A} style={{ flexShrink: 0 }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-muted)' }}>Recursos vistos (promedio)</div>
-                  <div style={{ fontFamily: 'var(--font-syne), Syne, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: highlight(MOCK_GROUP_A.recursos, MOCK_GROUP_B.recursos) === 'a' ? COLOR_A : 'var(--text-primary)' }}>{MOCK_GROUP_A.recursos}</div>
+                  <div style={{ fontFamily: 'var(--font-syne), Syne, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: highlight(grupoA.recursos, grupoB.recursos) === 'a' ? COLOR_A : 'var(--text-primary)' }}>{grupoA.recursos}</div>
                 </div>
               </motion.div>
               <motion.div variants={STAGGER.item} style={{ ...CARD, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <CheckSquare size={16} color={COLOR_A} style={{ flexShrink: 0 }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-muted)' }}>Completitud quizzes</div>
-                  <div style={{ fontFamily: 'var(--font-syne), Syne, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: highlight(MOCK_GROUP_A.completitud, MOCK_GROUP_B.completitud) === 'a' ? COLOR_A : 'var(--text-primary)' }}>{MOCK_GROUP_A.completitud}%</div>
+                  <div style={{ fontFamily: 'var(--font-syne), Syne, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: highlight(grupoA.completitud, grupoB.completitud) === 'a' ? COLOR_A : 'var(--text-primary)' }}>{grupoA.completitud}%</div>
                 </div>
               </motion.div>
               <motion.div variants={STAGGER.item} style={{ ...CARD, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -472,7 +508,7 @@ export default function ExperimentoPage() {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-muted)' }}>Satisfacción promedio</div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                    <span style={{ fontFamily: 'var(--font-syne), Syne, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: highlight(MOCK_GROUP_A.satisfaccion, MOCK_GROUP_B.satisfaccion) === 'a' ? COLOR_A : 'var(--text-primary)' }}>{MOCK_GROUP_A.satisfaccion}</span>
+                    <span style={{ fontFamily: 'var(--font-syne), Syne, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: highlight(grupoA.satisfaccion, grupoB.satisfaccion) === 'a' ? COLOR_A : 'var(--text-primary)' }}>{grupoA.satisfaccion}</span>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>/5</span>
                   </div>
                 </div>
@@ -482,7 +518,7 @@ export default function ExperimentoPage() {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-muted)' }}>Tiempo en plataforma</div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                    <span style={{ fontFamily: 'var(--font-syne), Syne, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: highlight(MOCK_GROUP_A.tiempo, MOCK_GROUP_B.tiempo) === 'a' ? COLOR_A : 'var(--text-primary)' }}>{MOCK_GROUP_A.tiempo}</span>
+                    <span style={{ fontFamily: 'var(--font-syne), Syne, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: highlight(grupoA.tiempo, grupoB.tiempo) === 'a' ? COLOR_A : 'var(--text-primary)' }}>{grupoA.tiempo}</span>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>min</span>
                   </div>
                 </div>
@@ -523,21 +559,21 @@ export default function ExperimentoPage() {
                 <Users size={16} color={COLOR_B} style={{ flexShrink: 0 }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-muted)' }}>Estudiantes</div>
-                  <div style={{ fontFamily: 'var(--font-syne), Syne, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: 'var(--text-primary)' }}>{MOCK_GROUP_B.estudiantes}</div>
+                  <div style={{ fontFamily: 'var(--font-syne), Syne, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: 'var(--text-primary)' }}>{grupoB.estudiantes}</div>
                 </div>
               </motion.div>
               <motion.div variants={STAGGER.item} style={{ ...CARD, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <BookOpen size={16} color={COLOR_B} style={{ flexShrink: 0 }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-muted)' }}>Recursos vistos (promedio)</div>
-                  <div style={{ fontFamily: 'var(--font-syne), Syne, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: highlight(MOCK_GROUP_B.recursos, MOCK_GROUP_A.recursos) === 'a' ? COLOR_B : 'var(--text-primary)' }}>{MOCK_GROUP_B.recursos}</div>
+                  <div style={{ fontFamily: 'var(--font-syne), Syne, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: highlight(grupoB.recursos, grupoA.recursos) === 'a' ? COLOR_B : 'var(--text-primary)' }}>{grupoB.recursos}</div>
                 </div>
               </motion.div>
               <motion.div variants={STAGGER.item} style={{ ...CARD, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <CheckSquare size={16} color={COLOR_B} style={{ flexShrink: 0 }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-muted)' }}>Completitud quizzes</div>
-                  <div style={{ fontFamily: 'var(--font-syne), Syne, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: highlight(MOCK_GROUP_B.completitud, MOCK_GROUP_A.completitud) === 'a' ? COLOR_B : 'var(--text-primary)' }}>{MOCK_GROUP_B.completitud}%</div>
+                  <div style={{ fontFamily: 'var(--font-syne), Syne, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: highlight(grupoB.completitud, grupoA.completitud) === 'a' ? COLOR_B : 'var(--text-primary)' }}>{grupoB.completitud}%</div>
                 </div>
               </motion.div>
               <motion.div variants={STAGGER.item} style={{ ...CARD, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -545,7 +581,7 @@ export default function ExperimentoPage() {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-muted)' }}>Satisfacción promedio</div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                    <span style={{ fontFamily: 'var(--font-syne), Syne, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: highlight(MOCK_GROUP_B.satisfaccion, MOCK_GROUP_A.satisfaccion) === 'a' ? COLOR_B : 'var(--text-primary)' }}>{MOCK_GROUP_B.satisfaccion}</span>
+                    <span style={{ fontFamily: 'var(--font-syne), Syne, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: highlight(grupoB.satisfaccion, grupoA.satisfaccion) === 'a' ? COLOR_B : 'var(--text-primary)' }}>{grupoB.satisfaccion}</span>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>/5</span>
                   </div>
                 </div>
@@ -555,7 +591,7 @@ export default function ExperimentoPage() {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-muted)' }}>Tiempo en plataforma</div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                    <span style={{ fontFamily: 'var(--font-syne), Syne, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: highlight(MOCK_GROUP_B.tiempo, MOCK_GROUP_A.tiempo) === 'a' ? COLOR_B : 'var(--text-primary)' }}>{MOCK_GROUP_B.tiempo}</span>
+                    <span style={{ fontFamily: 'var(--font-syne), Syne, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: highlight(grupoB.tiempo, grupoA.tiempo) === 'a' ? COLOR_B : 'var(--text-primary)' }}>{grupoB.tiempo}</span>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>min</span>
                   </div>
                 </div>

@@ -76,7 +76,7 @@ def recomendar_recursos(estudiante, tema_id, config=None):
         config = ConfiguracionMotor.obtener()
 
     try:
-        perfil = estudiante.perfilvark
+        perfil = estudiante.perfil_vark
     except Exception:
         return []
 
@@ -124,6 +124,65 @@ def recomendar_recursos(estudiante, tema_id, config=None):
 
     resultados.sort(key=lambda x: x['puntuacion'], reverse=True)
     return resultados[: config.max_recomendaciones]
+
+
+# ─── Fase 6: Experimento A/B — el grupo cambia la experiencia ─────────────────
+
+def grupo_experimento_activo(estudiante):
+    """
+    Devuelve el grupo ('experimental' | 'control') del estudiante en el
+    experimento A/B **activo** más reciente, o None si no está en ninguno.
+    """
+    try:
+        from apps.analitica.models import AsignacionExperimento, ExperimentoAB
+    except Exception:
+        return None
+    asignacion = (
+        AsignacionExperimento.objects
+        .filter(estudiante=estudiante, experimento__estado=ExperimentoAB.ESTADO_ACTIVO)
+        .order_by('-fecha_asignacion')
+        .first()
+    )
+    return asignacion.grupo if asignacion else None
+
+
+def recomendar_sin_personalizacion(tema_id, config=None):
+    """
+    Recomendación para el grupo de CONTROL: recursos del tema **sin** usar el
+    vector VARK (orden por recencia). Sirve como línea base del experimento A/B.
+
+    Returns:
+        list[dict] con: recurso, puntuacion (0.0), justificacion
+    """
+    from apps.contenido.models import Recurso, Tema
+    from apps.recomendacion.models import ConfiguracionMotor
+
+    if config is None:
+        config = ConfiguracionMotor.obtener()
+
+    try:
+        tema = Tema.objects.get(pk=tema_id, activo=True)
+    except Tema.DoesNotExist:
+        return []
+
+    recursos = list(
+        Recurso.objects.filter(tema=tema, activo=True, url_valida=True)
+        .select_related('tema', 'subtema')
+        .order_by('-fecha_creacion')[: config.max_recomendaciones]
+    )
+
+    justificacion = (
+        'Recurso de {tema} mostrado sin personalización por estilo de aprendizaje '
+        '(grupo de control del experimento A/B).'
+    )
+    return [
+        {
+            'recurso': r,
+            'puntuacion': 0.0,
+            'justificacion': justificacion.format(tema=tema.nombre),
+        }
+        for r in recursos
+    ]
 
 
 def _generar_justificacion_local(recurso, vector, tema_nombre):

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play, FileText, Headphones, Code2,
@@ -12,6 +12,12 @@ import Badge   from '@/components/ui/Badge';
 import Modal   from '@/components/ui/Modal';
 import Input   from '@/components/ui/Input';
 import Select, { SelectOption } from '@/components/ui/Select';
+import {
+  listarRecursos, crearRecurso, actualizarRecurso, eliminarRecurso, listarTemas,
+} from '@/lib/api/contenido';
+import type {
+  Recurso as RecursoAPI, NivelComplejidad, TipoFormato, CategoriaVARK,
+} from '@/lib/api/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type TipoRecurso = 'video' | 'documento' | 'audio' | 'ejercicio';
@@ -214,6 +220,34 @@ const TIPO_COLOR: Record<TipoRecurso, string> = {
   ejercicio: 'var(--vark-k)',
 };
 
+// ─── API ↔ UI mapping ─────────────────────────────────────────────────────────
+const TIPO_API_TO_UI: Record<TipoFormato, TipoRecurso> = {
+  video: 'video', articulo: 'documento', documento: 'documento', ejercicio: 'ejercicio',
+};
+const TIPO_UI_TO_API: Record<TipoRecurso, TipoFormato> = {
+  video: 'video', documento: 'documento', audio: 'documento', ejercicio: 'ejercicio',
+};
+const NIVEL_API_TO_DIF: Record<NivelComplejidad, 1 | 2 | 3> = {
+  basico: 1, intermedio: 2, avanzado: 3,
+};
+const DIF_TO_NIVEL_API: Record<number, NivelComplejidad> = {
+  1: 'basico', 2: 'intermedio', 3: 'avanzado',
+};
+
+function mapRecursoAPI(r: RecursoAPI): Recurso {
+  return {
+    id: String(r.id),
+    titulo: r.titulo,
+    url: r.url,
+    descripcion: r.descripcion ?? '',
+    tema: String(r.tema),
+    tipo: TIPO_API_TO_UI[r.tipo_formato] ?? 'documento',
+    vark: r.categoria_vark,
+    dificultad: NIVEL_API_TO_DIF[r.nivel_complejidad] ?? 1,
+    estado: r.activo ? 'Aprobado' : 'Rechazado',
+  };
+}
+
 function getYoutubeThumbnail(url: string): string | null {
   const match = url.match(
     /(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
@@ -371,6 +405,28 @@ const EMPTY_FORM: FormState = {
 
 export default function RecursosPage() {
   const [recursos,    setRecursos]    = useState<Recurso[]>(MOCK_RECURSOS);
+  const [temaOpts,    setTemaOpts]    = useState<SelectOption[]>(TEMAS_OPTS);
+  const temaLabelMap = useMemo(
+    () => Object.fromEntries(temaOpts.map((t) => [t.value, t.label])) as Record<string, string>,
+    [temaOpts],
+  );
+
+  // Carga inicial (CU-08/CU-11)
+  useEffect(() => {
+    let mounted = true;
+    listarTemas()
+      .then((temas) => {
+        if (mounted && temas.length) {
+          setTemaOpts(temas.map((t) => ({ value: String(t.id), label: t.nombre })));
+        }
+      })
+      .catch(() => {});
+    listarRecursos()
+      .then((data) => { if (mounted) setRecursos(data.map(mapRecursoAPI)); })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, []);
+
   const [busqueda,    setBusqueda]    = useState('');
   const [filtroTema,  setFiltroTema]  = useState('');
   const [filtroVark,  setFiltroVark]  = useState('');
@@ -446,49 +502,38 @@ export default function RecursosPage() {
     return Object.keys(e).length === 0;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validate()) return;
     setSaving(true);
-    setTimeout(() => {
+    const payload = {
+      titulo:            form.titulo.trim(),
+      url:               form.url.trim(),
+      descripcion:       form.descripcion.trim(),
+      tema:              Number(form.tema),
+      categoria_vark:    form.vark as CategoriaVARK,
+      nivel_complejidad: DIF_TO_NIVEL_API[Number(form.dificultad)] ?? 'basico',
+      tipo_formato:      TIPO_UI_TO_API[form.tipo as TipoRecurso] ?? 'documento',
+    };
+    try {
       if (editingId) {
-        setRecursos((prev) =>
-          prev.map((r) =>
-            r.id === editingId
-              ? {
-                  ...r,
-                  titulo:      form.titulo,
-                  url:         form.url,
-                  descripcion: form.descripcion,
-                  tema:        form.tema,
-                  tipo:        form.tipo as TipoRecurso,
-                  vark:        form.vark as EstiloVark,
-                  dificultad:  Number(form.dificultad) as 1 | 2 | 3,
-                }
-              : r,
-          ),
-        );
+        const updated = await actualizarRecurso(Number(editingId), payload);
+        setRecursos((prev) => prev.map((r) => (r.id === editingId ? mapRecursoAPI(updated) : r)));
       } else {
-        const nuevo: Recurso = {
-          id:          Date.now().toString(),
-          titulo:      form.titulo,
-          url:         form.url,
-          descripcion: form.descripcion,
-          tema:        form.tema,
-          tipo:        form.tipo as TipoRecurso,
-          vark:        form.vark as EstiloVark,
-          dificultad:  Number(form.dificultad) as 1 | 2 | 3,
-          estado:      'Pendiente',
-        };
-        setRecursos((prev) => [nuevo, ...prev]);
+        const created = await crearRecurso(payload);
+        setRecursos((prev) => [mapRecursoAPI(created), ...prev]);
       }
-      setSaving(false);
       closeModal();
-    }, 700);
+    } catch (err) {
+      setErrors({ titulo: err instanceof Error ? err.message : 'Error al guardar.' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = () => {
     if (!deleteId) return;
     setRecursos((prev) => prev.filter((r) => r.id !== deleteId));
+    eliminarRecurso(Number(deleteId)).catch(() => { /* cambio optimista en la UI */ });
     setDeleteId(null);
   };
 
@@ -573,7 +618,7 @@ export default function RecursosPage() {
 
         <Select
           label="Tema"
-          options={TEMAS_OPTS}
+          options={temaOpts}
           value={filtroTema}
           onChange={setFiltroTema}
           nullable nullLabel="Todos los temas"
@@ -614,6 +659,7 @@ export default function RecursosPage() {
               <RecursoCard
                 key={r.id}
                 recurso={r}
+                temaLabel={temaLabelMap[r.tema] ?? r.tema}
                 hovered={hovered === r.id}
                 onHover={() => setHovered(r.id)}
                 onLeave={() => setHovered(null)}
@@ -713,7 +759,7 @@ export default function RecursosPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <Select
               label="Tema"
-              options={TEMAS_OPTS}
+              options={temaOpts}
               value={form.tema}
               onChange={setField('tema')}
               error={errors.tema}
@@ -792,6 +838,7 @@ export default function RecursosPage() {
 // ─── Recurso Card ─────────────────────────────────────────────────────────────
 interface CardProps {
   recurso:   Recurso;
+  temaLabel: string;
   hovered:   boolean;
   onHover:   () => void;
   onLeave:   () => void;
@@ -799,7 +846,7 @@ interface CardProps {
   onDelete:  () => void;
 }
 
-function RecursoCard({ recurso: r, hovered, onHover, onLeave, onEdit, onDelete }: CardProps) {
+function RecursoCard({ recurso: r, temaLabel, hovered, onHover, onLeave, onEdit, onDelete }: CardProps) {
   const ytThumb = r.tipo === 'video' ? getYoutubeThumbnail(r.url) : null;
 
   return (
@@ -917,7 +964,7 @@ function RecursoCard({ recurso: r, hovered, onHover, onLeave, onEdit, onDelete }
                 color: 'var(--text-muted)',
               }}
             >
-              {TEMA_LABEL[r.tema] ?? r.tema}
+              {temaLabel}
             </span>
           </div>
 

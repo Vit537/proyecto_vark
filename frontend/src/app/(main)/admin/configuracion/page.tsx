@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
+import { obtenerConfiguracionMotor, actualizarConfiguracionMotor } from '@/lib/api/recomendacion';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface VarkWeights  { V: number; A: number; R: number; K: number }
@@ -364,6 +365,22 @@ export default function ConfiguracionPage() {
 
   const isDirty = JSON.stringify(config) !== JSON.stringify(savedConfig);
 
+  // CU-06: Cargar la configuración del motor (mapeamos factor_decaimiento → decay.speed)
+  useEffect(() => {
+    let mounted = true;
+    obtenerConfiguracionMotor()
+      .then((cfg) => {
+        if (!mounted) return;
+        setConfig((prev) => {
+          const next = { ...prev, decay: { ...prev.decay, speed: cfg.factor_decaimiento } };
+          setSavedConfig(next);
+          return next;
+        });
+      })
+      .catch(() => { /* se mantienen los valores por defecto */ });
+    return () => { mounted = false; };
+  }, []);
+
   // ─── VARK constraint helper ─────────────────────────────────────────────────
   const varkSum = config.vark.V + config.vark.A + config.vark.R + config.vark.K;
 
@@ -372,16 +389,22 @@ export default function ConfiguracionPage() {
   }, []);
 
   // ─── Save handler ────────────────────────────────────────────────────────────
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true);
     setSaveState('idle');
-    setTimeout(() => {
-      setSaving(false);
+    try {
+      // CU-06: el modelo del motor solo persiste factor_decaimiento de esta vista.
+      await actualizarConfiguracionMotor({ factor_decaimiento: config.decay.speed });
       setSaveState('success');
       setSavedConfig(config);
       setLastSaved(new Date());
       setTimeout(() => setSaveState('idle'), 3000);
-    }, 700);
+    } catch {
+      setSaveState('error');
+      setTimeout(() => setSaveState('idle'), 3000);
+    } finally {
+      setSaving(false);
+    }
   };
 
   // ─── Render sections ─────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Search, ChevronRight, Edit2, Trash2,
@@ -11,6 +11,11 @@ import Input from '@/components/ui/Input';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
 import Select from '@/components/ui/Select';
+import {
+  listarTemasCompletos, crearTema, actualizarTema, eliminarTema,
+  crearSubtema,
+} from '@/lib/api/contenido';
+import type { Tema as TemaAPI } from '@/lib/api/types';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface Subtema {
@@ -101,9 +106,36 @@ const rowVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.28 } },
 };
 
+// ─── API → UI mapping ─────────────────────────────────────────────────────────
+function mapTemaAPI(t: TemaAPI): Tema {
+  return {
+    id: String(t.id),
+    nombre: t.nombre,
+    descripcion: t.descripcion ?? '',
+    creadoPor: 'Sistema',
+    fecha: '',
+    subtemas: (t.subtemas ?? []).map((s) => ({
+      id: String(s.id),
+      nombre: s.nombre,
+      descripcion: s.descripcion ?? '',
+      creadoPor: 'Sistema',
+      fecha: '',
+    })),
+  };
+}
+
 // ─── Page Component ───────────────────────────────────────────────────────────
 export default function TemasPage() {
   const [temas, setTemas] = useState<Tema[]>(INITIAL_TEMAS);
+
+  // Carga inicial desde el backend (CU-04)
+  useEffect(() => {
+    let mounted = true;
+    listarTemasCompletos()
+      .then((data) => { if (mounted) setTemas(data.map(mapTemaAPI)); })
+      .catch(() => { /* se mantienen los datos de respaldo */ });
+    return () => { mounted = false; };
+  }, []);
   const [search, setSearch] = useState('');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(['1']));
   const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
@@ -175,7 +207,10 @@ export default function TemasPage() {
     setEditingSubtemaId(null);
   };
 
-  const deleteTema = (id: string) => setTemas((prev) => prev.filter((t) => t.id !== id));
+  const deleteTema = (id: string) => {
+    setTemas((prev) => prev.filter((t) => t.id !== id));
+    eliminarTema(Number(id)).catch(() => { /* el cambio ya es optimista en la UI */ });
+  };
 
   const deleteSubtema = (parentId: string, subId: string) => {
     setTemas((prev) =>
@@ -198,59 +233,58 @@ export default function TemasPage() {
       return;
     }
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 600));
+    const nombre = form.nombre.trim();
+    const descripcion = form.descripcion.trim();
 
-    if (editingTemaId) {
-      setTemas((prev) =>
-        prev.map((t) =>
-          t.id === editingTemaId
-            ? { ...t, nombre: form.nombre.trim(), descripcion: form.descripcion.trim() }
-            : t,
-        ),
-      );
-    } else if (editingSubtemaId) {
-      setTemas((prev) =>
-        prev.map((t) =>
-          t.id === form.parentId
-            ? {
-                ...t,
-                subtemas: t.subtemas.map((s) =>
-                  s.id === editingSubtemaId
-                    ? { ...s, nombre: form.nombre.trim(), descripcion: form.descripcion.trim() }
-                    : s,
-                ),
-              }
-            : t,
-        ),
-      );
-    } else if (form.parentId) {
-      const newSub: Subtema = {
-        id: `${form.parentId}-${Date.now()}`,
-        nombre: form.nombre.trim(),
-        descripcion: form.descripcion.trim(),
-        creadoPor: 'Admin',
-        fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }),
-      };
-      setTemas((prev) =>
-        prev.map((t) =>
-          t.id === form.parentId ? { ...t, subtemas: [...t.subtemas, newSub] } : t,
-        ),
-      );
-      setExpandedIds((prev) => new Set(prev).add(form.parentId));
-    } else {
-      const newTema: Tema = {
-        id: String(Date.now()),
-        nombre: form.nombre.trim(),
-        descripcion: form.descripcion.trim(),
-        creadoPor: 'Admin',
-        fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }),
-        subtemas: [],
-      };
-      setTemas((prev) => [...prev, newTema]);
+    try {
+      if (editingTemaId) {
+        // CU-04: Editar tema
+        const updated = await actualizarTema(Number(editingTemaId), { nombre, descripcion });
+        setTemas((prev) =>
+          prev.map((t) => (t.id === editingTemaId ? { ...mapTemaAPI(updated) } : t)),
+        );
+      } else if (editingSubtemaId) {
+        // El backend no expone edición de subtema: se actualiza localmente.
+        setTemas((prev) =>
+          prev.map((t) =>
+            t.id === form.parentId
+              ? {
+                  ...t,
+                  subtemas: t.subtemas.map((s) =>
+                    s.id === editingSubtemaId ? { ...s, nombre, descripcion } : s,
+                  ),
+                }
+              : t,
+          ),
+        );
+      } else if (form.parentId) {
+        // CU-04: Crear subtema
+        const sub = await crearSubtema(Number(form.parentId), { nombre, descripcion });
+        setTemas((prev) =>
+          prev.map((t) =>
+            t.id === form.parentId
+              ? {
+                  ...t,
+                  subtemas: [
+                    ...t.subtemas,
+                    { id: String(sub.id), nombre: sub.nombre, descripcion: sub.descripcion ?? '', creadoPor: 'Sistema', fecha: '' },
+                  ],
+                }
+              : t,
+          ),
+        );
+        setExpandedIds((prev) => new Set(prev).add(form.parentId));
+      } else {
+        // CU-04: Crear tema
+        const created = await crearTema({ nombre, descripcion });
+        setTemas((prev) => [...prev, mapTemaAPI(created)]);
+      }
+      closeModal();
+    } catch (err) {
+      setFormErrors({ nombre: err instanceof Error ? err.message : 'Error al guardar.' });
+    } finally {
+      setSaving(false);
     }
-
-    setSaving(false);
-    closeModal();
   };
 
   const temaOptions = temas.map((t) => ({ value: t.id, label: t.nombre }));

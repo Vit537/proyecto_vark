@@ -3,7 +3,7 @@ import io
 from collections import defaultdict
 from datetime import timedelta
 
-from django.db.models import Avg, Count
+from django.db.models import Avg, Count, Sum
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import status
@@ -140,6 +140,189 @@ class HistorialVARKDetalleView(APIView):
         return Response(data)
 
 
+# ─── Fase 2: Vista 360° del estudiante (Docente/Admin) ───────────────────────
+
+class Perfil360EstudianteView(APIView):
+    """
+    GET /api/analitica/estudiantes/<pk>/perfil-360/
+    Todo lo que hace un estudiante: perfil VARK, evolución, clickstream (clics y
+    tiempo), recomendaciones, valoraciones y quizzes. Visible por docente y admin.
+    """
+    permission_classes = [EsDocenteOAdmin]
+
+    def get(self, request, pk):
+        from apps.accounts.models import Usuario
+        from apps.contenido.models import ResultadoQuiz
+        from apps.recomendacion.models import (
+            EventoClickstream, HistorialPerfilVARK, Recomendacion, ValoracionRecurso,
+        )
+
+        try:
+            est = Usuario.objects.get(pk=pk, rol='estudiante')
+        except Usuario.DoesNotExist:
+            return Response({'detail': 'Estudiante no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # ── Perfil VARK ─────────────────────────────────────────────────────
+        try:
+            perfil = est.perfil_vark
+            vector = perfil.vector
+            estilo_dominante = max(vector, key=vector.get)
+            test_completado = perfil.test_completado
+        except Exception:
+            vector = {'V': 0, 'A': 0, 'R': 0, 'K': 0}
+            estilo_dominante = 'N/A'
+            test_completado = False
+
+        # ── Evolución del perfil ────────────────────────────────────────────
+        historial = HistorialPerfilVARK.objects.filter(estudiante=est).order_by('fecha')
+        evolucion = [
+            {
+                'fecha': h.fecha.date().isoformat(),
+                'origen': h.get_origen_display(),
+                'V': round(h.vector_nuevo.get('V', 0), 3),
+                'A': round(h.vector_nuevo.get('A', 0), 3),
+                'R': round(h.vector_nuevo.get('R', 0), 3),
+                'K': round(h.vector_nuevo.get('K', 0), 3),
+            }
+            for h in historial
+        ]
+
+        # ── Clickstream ─────────────────────────────────────────────────────
+        eventos = EventoClickstream.objects.filter(estudiante=est)
+        total_clics = eventos.filter(tipo_evento='clic').count()
+        tiempo_total = eventos.filter(tipo_evento='permanencia').aggregate(
+            s=Sum('duracion_segundos'))['s'] or 0
+        recursos_unicos = eventos.filter(tipo_evento='clic').values('recurso_id').distinct().count()
+        top_recursos = list(
+            eventos.filter(tipo_evento='clic')
+            .values('recurso__id', 'recurso__titulo')
+            .annotate(clics=Count('id'))
+            .order_by('-clics')[:5]
+        )
+
+        # ── Recomendaciones / valoraciones / quizzes ────────────────────────
+        recomendaciones = [
+            {
+                'recurso_titulo': r.recurso.titulo,
+                'tema': r.tema.nombre,
+                'puntuacion': round(r.puntuacion, 3),
+                'vista': r.vista,
+                'fecha': r.fecha_recomendacion.date().isoformat(),
+            }
+            for r in Recomendacion.objects.filter(estudiante=est)
+            .select_related('recurso', 'tema').order_by('-fecha_recomendacion')[:10]
+        ]
+        valoraciones = [
+            {
+                'recurso_titulo': v.recurso.titulo,
+                'valoracion': v.valoracion,
+                'comentario': v.comentario,
+                'fecha': v.fecha.date().isoformat(),
+            }
+            for v in ValoracionRecurso.objects.filter(estudiante=est).select_related('recurso')
+        ]
+        quizzes = [
+            {
+                'tema': q.tema.nombre,
+                'puntaje': round(q.puntaje, 3),
+                'total_preguntas': q.total_preguntas,
+                'respuestas_correctas': q.respuestas_correctas,
+                'fecha': q.fecha_realizacion.date().isoformat(),
+            }
+            for q in ResultadoQuiz.objects.filter(estudiante=est)
+            .select_related('tema').order_by('-fecha_realizacion')
+        ]
+
+        # ── Engagement (clics en últimos 30 días) ───────────────────────────
+        hace_30 = timezone.now() - timedelta(days=30)
+        clics_recientes = eventos.filter(tipo_evento='clic', timestamp__gte=hace_30).count()
+        engagement = 'activo' if clics_recientes >= 3 else 'en_riesgo'
+
+        return Response({
+            'usuario': {
+                'id': est.pk,
+                'nombre_completo': est.nombre_completo,
+                'email': est.email,
+                'fecha_registro': est.fecha_registro.date().isoformat(),
+                'is_active': est.is_active,
+            },
+            'perfil_vark': {k: round(v, 3) for k, v in vector.items()},
+            'estilo_dominante': estilo_dominante,
+            'test_completado': test_completado,
+            'evolucion': evolucion,
+            'clickstream': {
+                'total_clics': total_clics,
+                'tiempo_total_segundos': tiempo_total,
+                'recursos_unicos': recursos_unicos,
+                'top_recursos': top_recursos,
+            },
+            'recomendaciones': recomendaciones,
+            'valoraciones': valoraciones,
+            'quizzes': quizzes,
+            'engagement': engagement,
+        })
+
+
+# ─── Fase 2: Dashboard del Administrador ─────────────────────────────────────
+
+class DashboardAdminView(APIView):
+    """GET /api/analitica/dashboard/admin/  → métricas globales de la plataforma."""
+    permission_classes = [EsAdmin]
+
+    def get(self, request):
+        from apps.accounts.models import PerfilVARK, Usuario
+        from apps.contenido.models import Recurso, ResultadoQuiz, SugerenciaIA
+        from apps.recomendacion.models import EventoClickstream
+
+        total_estudiantes = Usuario.objects.filter(rol='estudiante', is_active=True).count()
+        total_docentes = Usuario.objects.filter(rol='docente', is_active=True).count()
+        total_recursos = Recurso.objects.filter(activo=True).count()
+        total_quizzes = ResultadoQuiz.objects.count()
+
+        # Distribución VARK de la población
+        dist = {'V': 0, 'A': 0, 'R': 0, 'K': 0}
+        for p in PerfilVARK.objects.filter(test_completado=True):
+            dist[max(p.vector, key=p.vector.get)] += 1
+
+        recursos_mas_efectivos = list(
+            EventoClickstream.objects.filter(tipo_evento='clic')
+            .values('recurso__id', 'recurso__titulo', 'recurso__categoria_vark')
+            .annotate(total_clics=Count('id'))
+            .order_by('-total_clics')[:5]
+        )
+
+        # Bajo engagement (< 3 clics en 30 días)
+        hace_30 = timezone.now() - timedelta(days=30)
+        clics_recientes = (
+            EventoClickstream.objects.filter(tipo_evento='clic', timestamp__gte=hace_30)
+            .values('estudiante_id').annotate(total=Count('id'))
+        )
+        ids_activos = {r['estudiante_id'] for r in clics_recientes if r['total'] >= 3}
+        bajo_engagement = [
+            {'id': u.pk, 'email': u.email, 'nombre': u.nombre_completo}
+            for u in Usuario.objects.filter(rol='estudiante', is_active=True)
+            if u.pk not in ids_activos
+        ]
+
+        # Tasa de aceptación de sugerencias IA
+        aprob = SugerenciaIA.objects.filter(estado='aprobado').count()
+        rech = SugerenciaIA.objects.filter(estado='rechazado').count()
+        tasa_aceptacion_ia = round(aprob / (aprob + rech), 3) if (aprob + rech) > 0 else None
+
+        return Response({
+            'totales': {
+                'estudiantes': total_estudiantes,
+                'docentes': total_docentes,
+                'recursos': total_recursos,
+                'quizzes_realizados': total_quizzes,
+            },
+            'distribucion_vark': dist,
+            'recursos_mas_efectivos': recursos_mas_efectivos,
+            'estudiantes_bajo_engagement': bajo_engagement,
+            'tasa_aceptacion_ia': tasa_aceptacion_ia,
+        })
+
+
 # ─── CU-19: Reporte estadístico para docentes ────────────────────────────────
 
 class ReporteDocenteView(APIView):
@@ -236,8 +419,16 @@ class ExperimentoABDetailView(APIView):
             return Response({'detail': 'No encontrado.'}, status=status.HTTP_404_NOT_FOUND)
         serializer = ExperimentoABSerializer(exp, data=request.data, partial=True)
         if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
+            exp = serializer.save()
+            # Fase 6: al finalizar, fijar fecha_fin para congelar los resultados.
+            if exp.estado == ExperimentoAB.ESTADO_FINALIZADO and exp.fecha_fin is None:
+                exp.fecha_fin = timezone.now()
+                exp.save(update_fields=['fecha_fin'])
+            elif exp.estado == ExperimentoAB.ESTADO_ACTIVO and exp.fecha_fin is not None:
+                # Reactivar: reabrir la ventana de medición
+                exp.fecha_fin = None
+                exp.save(update_fields=['fecha_fin'])
+            return Response(ExperimentoABSerializer(exp).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -300,6 +491,9 @@ class ResultadosExperimentoView(APIView):
         except ExperimentoAB.DoesNotExist:
             return Response({'detail': 'Experimento no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
 
+        # Fase 6: si está finalizado, congelamos los resultados hasta fecha_fin.
+        hasta = experimento.fecha_fin  # None si sigue activo
+
         grupos = {}
         for grupo in ['experimental', 'control']:
             ids = list(
@@ -308,29 +502,56 @@ class ResultadosExperimentoView(APIView):
                 ).values_list('estudiante_id', flat=True)
             )
             if not ids:
-                grupos[grupo] = {'total': 0, 'promedio_puntaje': None, 'total_clics': 0}
+                grupos[grupo] = {
+                    'total': 0, 'promedio_puntaje': None, 'total_clics': 0,
+                    'tiempo_promedio_segundos': None, 'recursos_consumidos': 0,
+                }
                 continue
 
-            avg_puntaje = (
-                ResultadoQuiz.objects.filter(
-                    estudiante_id__in=ids,
-                    fecha_realizacion__gte=experimento.fecha_inicio,
-                ).aggregate(avg=Avg('puntaje'))['avg']
+            quiz_qs = ResultadoQuiz.objects.filter(
+                estudiante_id__in=ids, fecha_realizacion__gte=experimento.fecha_inicio,
             )
-            total_clics = EventoClickstream.objects.filter(
-                estudiante_id__in=ids,
-                tipo_evento='clic',
+            clic_qs = EventoClickstream.objects.filter(
+                estudiante_id__in=ids, tipo_evento='clic',
                 timestamp__gte=experimento.fecha_inicio,
-            ).count()
+            )
+            permanencia_qs = EventoClickstream.objects.filter(
+                estudiante_id__in=ids, tipo_evento='permanencia',
+                timestamp__gte=experimento.fecha_inicio,
+            )
+            if hasta:
+                quiz_qs = quiz_qs.filter(fecha_realizacion__lte=hasta)
+                clic_qs = clic_qs.filter(timestamp__lte=hasta)
+                permanencia_qs = permanencia_qs.filter(timestamp__lte=hasta)
+
+            avg_puntaje = quiz_qs.aggregate(avg=Avg('puntaje'))['avg']
+            avg_tiempo = permanencia_qs.aggregate(avg=Avg('duracion_segundos'))['avg']
+            recursos_consumidos = clic_qs.values('recurso_id').distinct().count()
 
             grupos[grupo] = {
                 'total': len(ids),
                 'promedio_puntaje': round(avg_puntaje, 3) if avg_puntaje else None,
-                'total_clics': total_clics,
+                'total_clics': clic_qs.count(),
+                'tiempo_promedio_segundos': round(avg_tiempo, 1) if avg_tiempo else None,
+                'recursos_consumidos': recursos_consumidos,
             }
+
+        # Ganador según el promedio de puntaje de quizzes (métrica principal).
+        exp_p = grupos['experimental']['promedio_puntaje']
+        ctrl_p = grupos['control']['promedio_puntaje']
+        if exp_p is None and ctrl_p is None:
+            ganador = None
+        elif ctrl_p is None or (exp_p is not None and exp_p > ctrl_p):
+            ganador = 'experimental'
+        elif exp_p is None or ctrl_p > exp_p:
+            ganador = 'control'
+        else:
+            ganador = 'empate'
 
         return Response({
             'experimento': ExperimentoABSerializer(experimento).data,
+            'congelado': hasta is not None,
+            'ganador': ganador,
             'resultados': grupos,
         })
 
