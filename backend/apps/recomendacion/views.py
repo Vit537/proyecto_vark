@@ -43,27 +43,42 @@ class RecomendarRecursosView(APIView):
         from apps.contenido.models import Tema
         from .services.cbf_service import (
             generar_justificacion_groq,
+            grupo_experimento_activo,
             recomendar_recursos,
-            _generar_justificacion_local,
+            recomendar_sin_personalizacion,
         )
 
-        resultados = recomendar_recursos(request.user, tema_id)
+        # Fase 6 (A/B): el grupo del experimento cambia la experiencia.
+        grupo = grupo_experimento_activo(request.user)
+        if grupo == 'control':
+            resultados = recomendar_sin_personalizacion(tema_id)
+            personalizado = False
+        else:
+            # 'experimental' o sin experimento → motor personalizado normal
+            resultados = recomendar_recursos(request.user, tema_id)
+            personalizado = True
 
         if not resultados:
-            return Response(
-                {'detail': 'No hay recursos disponibles que coincidan con tu perfil VARK.'},
-                status=status.HTTP_200_OK,
+            detalle = (
+                'No hay recursos disponibles que coincidan con tu perfil VARK.'
+                if personalizado else
+                'No hay recursos disponibles para este tema en este momento.'
             )
+            return Response({'detail': detalle}, status=status.HTTP_200_OK)
 
         tema = Tema.objects.get(pk=tema_id)
-        vector_snapshot = request.user.perfilvark.vector
+        try:
+            vector_snapshot = request.user.perfil_vark.vector
+        except Exception:
+            vector_snapshot = {'V': 0, 'A': 0, 'R': 0, 'K': 0}
 
         recomendaciones_guardadas = []
         for item in resultados:
             recurso = item['recurso']
             justificacion = item['justificacion']
 
-            if usar_groq:
+            # La justificación con IA solo aplica al grupo personalizado
+            if usar_groq and personalizado:
                 texto_groq = generar_justificacion_groq(recurso, vector_snapshot, tema.nombre)
                 if texto_groq:
                     justificacion = texto_groq
@@ -75,6 +90,7 @@ class RecomendarRecursosView(APIView):
                 puntuacion=item['puntuacion'],
                 justificacion=justificacion,
                 vector_vark_snapshot=vector_snapshot,
+                grupo_experimento=grupo or '',
             )
             recomendaciones_guardadas.append(rec)
 

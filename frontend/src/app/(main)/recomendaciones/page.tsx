@@ -13,7 +13,10 @@ import Badge    from '@/components/ui/Badge';
 import Button   from '@/components/ui/Button';
 import Modal    from '@/components/ui/Modal';
 import RadarChart from '@/components/ui/RadarChart';
-import { misRecomendaciones, marcarRecomendacionVista } from '@/lib/api/recomendacion';
+import {
+  misRecomendaciones, marcarRecomendacionVista,
+  valorarRecurso, registrarEventoClickstream,
+} from '@/lib/api/recomendacion';
 import { perfilVARK as fetchPerfilVARK } from '@/lib/api/accounts';
 import type { Recomendacion as RecomendacionAPI } from '@/lib/api/types';
 
@@ -34,6 +37,8 @@ interface Recurso {
   rating:     number;
   afinidad:   number; // 0-100
   razon:      string;
+  recursoId?:       number; // id real del recurso (CU-14/CU-15)
+  recomendacionId?: number; // id de la recomendación (CU-13 marcar vista)
 }
 
 // ─── Helpers API → UI ─────────────────────────────────────────────────────────
@@ -61,6 +66,8 @@ function toRecurso(r: RecomendacionAPI): Recurso {
     rating:      Math.round(r.puntuacion * 5),
     afinidad:    Math.round(r.puntuacion * 100),
     razon:       r.justificacion,
+    recursoId:       r.recurso,
+    recomendacionId: r.id,
   };
 }
 
@@ -513,7 +520,20 @@ function FeedbackPanel({ rec, onClose }: { rec: Recurso; onClose: () => void }) 
   const handleEnviar = async () => {
     if (stars === 0 || sending) return;
     setSending(true);
-    await new Promise((r) => setTimeout(r, 900));
+    // CU-14: Registrar valoración. stars >= 3 => útil; se añaden los tags al comentario.
+    const comentarioFinal = [comentario.trim(), Array.from(selTags).join(', ')]
+      .filter(Boolean).join(' · ');
+    try {
+      if (rec.recursoId) {
+        await valorarRecurso({
+          recurso: rec.recursoId,
+          valoracion: stars >= 3 ? 'util' : 'no_util',
+          comentario: comentarioFinal,
+        });
+      }
+    } catch {
+      /* la UI muestra el agradecimiento aunque falle el guardado */
+    }
     setSending(false);
     setEnviado(true);
     setTimeout(onClose, 2200);
@@ -1060,7 +1080,17 @@ export default function RecomendacionesPage() {
     return next;
   });
 
-  const openModal = (r: Recurso) => { setSelected(r); setModalOpen(true); };
+  const openModal = (r: Recurso) => {
+    setSelected(r);
+    setModalOpen(true);
+    // CU-15: registrar clic en el recurso · CU-13: marcar recomendación como vista
+    if (r.recursoId) {
+      registrarEventoClickstream({ recurso: r.recursoId, tipo_evento: 'clic' }).catch(() => {});
+    }
+    if (r.recomendacionId) {
+      marcarRecomendacionVista(r.recomendacionId).catch(() => {});
+    }
+  };
   const openJust  = (r: Recurso) => { setJustRecurso(r); setJustOpen(true); };
   const openValor = (r: Recurso) => { setValorRecurso(r); setValorOpen(true); };
 

@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { historialVARKDetalle } from '@/lib/api/analitica';
+import type { HistorialVARKDetalle } from '@/lib/api/types';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip as RechartsTooltip, ResponsiveContainer, Legend,
@@ -300,12 +302,54 @@ function SummaryTable({ data }: { data: DataPoint[] }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+function origenToTipo(origen: string): EventType {
+  const o = origen.toLowerCase();
+  if (o.includes('test')) return 'test';
+  if (o.includes('quiz')) return 'quiz';
+  if (o.includes('clickstream')) return 'sistema';
+  return 'sistema';
+}
+
 export default function HistorialPage() {
   const [range, setRange]           = useState<RangeKey>('1m');
   const [hiddenLines, setHiddenLines] = useState<Set<string>>(new Set());
   const [chartKey, setChartKey]     = useState(0); // forces chart remount on range change
 
-  const data = useMemo(() => DATA_BY_RANGE[range], [range]);
+  // ── Datos reales del historial VARK (CU-18) ─────────────────────────────────
+  const [apiData, setApiData]         = useState<DataPoint[] | null>(null);
+  const [apiTimeline, setApiTimeline] = useState<TimelineEvent[] | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    historialVARKDetalle()
+      .then((entries: HistorialVARKDetalle[]) => {
+        if (!mounted || entries.length === 0) return;
+        // El endpoint llega ordenado desc; lo invertimos para la línea temporal del gráfico.
+        const asc = [...entries].reverse();
+        setApiData(asc.map((e) => ({
+          fecha: new Date(e.fecha).toLocaleDateString('es', { day: 'numeric', month: 'short' }),
+          v: Math.round((e.vector_nuevo.V ?? 0) * 100),
+          a: Math.round((e.vector_nuevo.A ?? 0) * 100),
+          r: Math.round((e.vector_nuevo.R ?? 0) * 100),
+          k: Math.round((e.vector_nuevo.K ?? 0) * 100),
+        })));
+        setApiTimeline(entries.map((e) => {
+          const tipo = origenToTipo(e.origen);
+          return {
+            id: String(e.id),
+            type: tipo,
+            descripcion: `${e.origen} · Perfil VARK actualizado`,
+            fecha: new Date(e.fecha).toLocaleDateString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
+            color: EVENT_CFG[tipo].color,
+          };
+        }));
+      })
+      .catch(() => { /* se mantienen los datos de respaldo */ });
+    return () => { mounted = false; };
+  }, []);
+
+  const data = useMemo(() => apiData ?? DATA_BY_RANGE[range], [apiData, range]);
+  const timeline = apiTimeline ?? TIMELINE_EVENTS;
 
   const handleRangeChange = (key: RangeKey) => {
     setRange(key);
@@ -509,7 +553,7 @@ export default function HistorialPage() {
               animate="visible"
               style={{ display: 'flex', flexDirection: 'column', gap: 0 }}
             >
-              {TIMELINE_EVENTS.map((ev) => {
+              {timeline.map((ev) => {
                 const cfg  = EVENT_CFG[ev.type];
                 const Icon = cfg.Icon;
                 return (

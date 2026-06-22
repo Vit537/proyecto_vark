@@ -177,56 +177,162 @@ PREGUNTAS_ESTATICAS = [
 
 PROMPT_GROQ = """Eres un experto en estilos de aprendizaje VARK (Visual, Auditivo, Lectura/Escritura, Kinestésico).
 
-Genera exactamente 15 preguntas situacionales en español para evaluar el estilo de aprendizaje de estudiantes universitarios de programación.
+Genera exactamente {cantidad} preguntas situacionales en español para evaluar el estilo de aprendizaje de estudiantes universitarios de programación.
 
 Reglas:
 - Cada pregunta debe tener exactamente 4 opciones, una por cada estilo: V (Visual), A (Auditivo), R (Lectura/Escritura), K (Kinestésico).
 - El orden de las opciones dentro de cada pregunta debe ser ALEATORIO (no siempre V primero).
 - Las preguntas deben ser situacionales: "¿Qué harías cuando...?" o "¿Cómo prefieres...?"
-- Contexto: aprender conceptos de programación (algoritmos, estructuras de datos, POO, etc.)
+- Contexto temático: {contexto}
 - Todo en español.
 
 Responde ÚNICAMENTE con el JSON válido, sin texto adicional, sin bloques de código markdown, con esta estructura exacta:
-{
+{{
   "preguntas": [
-    {
+    {{
       "id": 1,
       "enunciado": "texto de la pregunta",
       "opciones": [
-        {"id": "a", "texto": "texto de la opción", "estilo": "K"},
-        {"id": "b", "texto": "texto de la opción", "estilo": "V"},
-        {"id": "c", "texto": "texto de la opción", "estilo": "R"},
-        {"id": "d", "texto": "texto de la opción", "estilo": "A"}
+        {{"id": "a", "texto": "texto de la opción", "estilo": "K"}},
+        {{"id": "b", "texto": "texto de la opción", "estilo": "V"}},
+        {{"id": "c", "texto": "texto de la opción", "estilo": "R"}},
+        {{"id": "d", "texto": "texto de la opción", "estilo": "A"}}
       ]
-    }
+    }}
   ]
-}"""
+}}"""
 
 
 def generar_test_vark():
     """
-    Intenta generar el test VARK via Groq API.
-    Si falla por cualquier razón, usa el test estático de respaldo.
+    Genera el test VARK que verá el estudiante, respetando la configuración
+    que definió el administrador (Fase 3).
+
+    - modo == 'banco_fijo'  → muestrea preguntas aprobadas del banco.
+    - modo == 'dinamico_ia' → genera con Groq; si falla, cae al banco y luego al estático.
 
     Returns:
-        tuple: (lista_de_preguntas, fuente)
-               fuente es 'groq' o 'estatico'
+        tuple: (lista_de_preguntas, fuente)  donde fuente ∈ {'groq', 'banco', 'estatico'}
     """
+    config = _get_config()
+    num = config['num_preguntas'] if config else 15
+    contexto = config['contexto_tematico'] if config else ''
+    modo = config['modo'] if config else 'dinamico_ia'
+    usar_fallback = config['usar_fallback'] if config else True
+
+    if modo == 'banco_fijo':
+        preguntas = _muestrear_banco(num)
+        if preguntas:
+            return preguntas, 'banco'
+        # Banco vacío: si hay fallback, usamos el estático
+        if usar_fallback:
+            return _muestrear_estatico(num), 'estatico'
+        return _muestrear_estatico(num), 'estatico'
+
+    # modo dinámico (IA)
     try:
-        return _generar_via_groq()
+        return _generar_via_groq(num, contexto)
     except Exception as exc:
-        logger.warning('Groq no disponible, usando test estático. Razón: %s', exc)
-        return PREGUNTAS_ESTATICAS, 'estatico'
+        logger.warning('Groq no disponible para el test. Razón: %s', exc)
+        if usar_fallback:
+            preguntas = _muestrear_banco(num)
+            if preguntas:
+                return preguntas, 'banco'
+        return _muestrear_estatico(num), 'estatico'
 
 
-def _generar_via_groq():
+def _get_config():
+    """Lee la configuración singleton sin romper si la tabla aún no existe."""
+    try:
+        from apps.accounts.models import ConfiguracionTestVARK
+        c = ConfiguracionTestVARK.get_solo()
+        return {
+            'modo': c.modo,
+            'num_preguntas': c.num_preguntas,
+            'contexto_tematico': c.contexto_tematico,
+            'usar_fallback': c.usar_fallback,
+        }
+    except Exception:
+        return None
+
+
+def _muestrear_estatico(num):
+    """Toma `num` preguntas del banco estático y reindexa los ids a 1..num."""
+    import random
+    seleccion = list(PREGUNTAS_ESTATICAS)
+    random.shuffle(seleccion)
+    seleccion = seleccion[:num] if num else seleccion
+    resultado = []
+    for i, p in enumerate(seleccion, start=1):
+        resultado.append({
+            'id': i,
+            'enunciado': p['enunciado'],
+            'opciones': [dict(o) for o in p['opciones']],
+        })
+    return resultado
+
+
+def _muestrear_banco(num):
+    """Muestrea preguntas activas del banco oficial (Fase 3). [] si está vacío."""
+    import random
+    try:
+        from apps.accounts.models import PreguntaVARK
+    except Exception:
+        return []
+    qs = list(PreguntaVARK.objects.filter(activo=True).prefetch_related('opciones'))
+    if not qs:
+        return []
+    random.shuffle(qs)
+    qs = qs[:num] if num else qs
+    resultado = []
+    for i, p in enumerate(qs, start=1):
+        opciones = list(p.opciones.all())
+        if len(opciones) < 4:
+            continue
+        random.shuffle(opciones)
+        resultado.append({
+            'id': i,
+            'enunciado': p.enunciado,
+            'opciones': [
+                {'id': chr(ord('a') + j), 'texto': o.texto, 'estilo': o.estilo}
+                for j, o in enumerate(opciones)
+            ],
+        })
+    return resultado
+
+
+def generar_preguntas_candidatas(cantidad=10, contexto=''):
+    """
+    Forma A (Fase 3): genera preguntas candidatas con IA para que el admin las
+    revise/edite/apruebe. NO las guarda en el banco. Si la IA falla y se permite,
+    devuelve candidatas tomadas del banco estático como respaldo.
+
+    Returns:
+        tuple: (lista_candidatas, fuente)  fuente ∈ {'groq', 'estatico'}
+    """
+    cantidad = max(5, min(20, cantidad))
+    try:
+        preguntas, _ = _generar_via_groq(cantidad, contexto)
+        return preguntas, 'groq'
+    except Exception as exc:
+        logger.warning('Groq no disponible para candidatas. Razón: %s', exc)
+        return _muestrear_estatico(cantidad), 'estatico'
+
+
+def _generar_via_groq(cantidad=15, contexto=''):
     from groq import Groq
+
+    cantidad = max(12, min(20, cantidad))
+    prompt = PROMPT_GROQ.format(
+        cantidad=cantidad,
+        contexto=contexto or 'aprender conceptos de programación (algoritmos, estructuras de datos, POO, etc.)',
+    )
 
     client = Groq(api_key=settings.GROQ_API_KEY)
 
     response = client.chat.completions.create(
         model=settings.GROQ_MODEL,
-        messages=[{'role': 'user', 'content': PROMPT_GROQ}],
+        messages=[{'role': 'user', 'content': prompt}],
         temperature=0.7,
         max_tokens=4000,
     )

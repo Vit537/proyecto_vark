@@ -105,6 +105,20 @@ class SolicitarSugerenciaIASerializer(serializers.Serializer):
         return value
 
 
+class SolicitarPreguntasIASerializer(serializers.Serializer):
+    """Fase 4: solicitud para generar preguntas de quiz con IA."""
+    tema_id = serializers.IntegerField()
+    dificultad = serializers.ChoiceField(
+        choices=['facil', 'media', 'dificil'], default='facil'
+    )
+    cantidad = serializers.IntegerField(min_value=1, max_value=10, default=5)
+
+    def validate_tema_id(self, value):
+        if not Tema.objects.filter(id=value, activo=True).exists():
+            raise serializers.ValidationError('Tema no encontrado o inactivo.')
+        return value
+
+
 # ─── Pregunta / OpcionPregunta (CU-05) ───────────────────────────────────────
 
 class OpcionPreguntaSerializer(serializers.ModelSerializer):
@@ -129,7 +143,7 @@ class PreguntaSerializer(serializers.ModelSerializer):
         model = Pregunta
         fields = [
             'id', 'enunciado', 'tema', 'tema_nombre', 'subtema', 'subtema_nombre',
-            'nivel_dificultad', 'activo', 'opciones', 'fecha_creacion',
+            'nivel_dificultad', 'origen', 'explicacion', 'activo', 'opciones', 'fecha_creacion',
         ]
         read_only_fields = ['id', 'fecha_creacion', 'creado_por']
 

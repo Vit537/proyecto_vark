@@ -96,6 +96,9 @@ class Recomendacion(models.Model):
     justificacion = models.TextField()
     # Snapshot del vector VARK en el momento de la recomendación
     vector_vark_snapshot = models.JSONField()
+    # Fase 6 (A/B): grupo del experimento al que pertenecía esta recomendación
+    # ('experimental', 'control' o '' si el estudiante no estaba en un experimento)
+    grupo_experimento = models.CharField(max_length=20, blank=True, default='')
     fecha_recomendacion = models.DateTimeField(auto_now_add=True)
     vista = models.BooleanField(default=False)
 

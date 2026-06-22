@@ -1,6 +1,15 @@
-# Ignore user-specified files
+# ─── Archivos de documentación y configuración local (no se suben al repo) ───
 casos_de_uso.md
+comando-backend.md
+comando-frontend.md
+credenciales.md
+despliegue.md
+prompt.md
+prompt-conexion.md
+puntos a realizar en el codigo - verificacion.md
 VARK_API.postman_collection.json
+docs/
+documentacion/
 
 # OS / editors
 .DS_Store

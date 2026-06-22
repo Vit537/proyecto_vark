@@ -13,6 +13,9 @@ import type { LucideIcon } from 'lucide-react';
 import RadarChart from '@/components/ui/RadarChart';
 import Badge      from '@/components/ui/Badge';
 import Button     from '@/components/ui/Button';
+import { dashboardEstudiante } from '@/lib/api/analitica';
+import { me as fetchMe } from '@/lib/api/accounts';
+import { misRecomendaciones } from '@/lib/api/recomendacion';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -157,10 +160,59 @@ const KPI_ITEMS = [
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+const TIPO_MAP_API: Record<string, TipoRecurso> = {
+  video: 'video', articulo: 'documento', documento: 'documento', ejercicio: 'ejercicio',
+};
+
 export default function DashboardPage() {
   const router   = useRouter();
   const greeting = getGreeting();
-  const dominant = getDominant(MOCK_PROFILE);
+
+  // ── Estado conectado al backend (CU-17) ─────────────────────────────────────
+  const [profile, setProfile]         = useState<VarkProfile>(MOCK_PROFILE);
+  const [studentName, setStudentName] = useState<string>(MOCK_STUDENT.nombre);
+  const [kpis, setKpis]               = useState(KPI_ITEMS);
+  const [recomendados, setRecomendados] = useState<RecursoCard[]>(MOCK_RECOMENDADOS);
+
+  useEffect(() => {
+    let mounted = true;
+    fetchMe()
+      .then((u) => { if (mounted) setStudentName(u.nombre_completo || u.nombre); })
+      .catch(() => {});
+    dashboardEstudiante()
+      .then((d) => {
+        if (!mounted) return;
+        const pv = d.perfil_vark;
+        setProfile({
+          v: Math.round((pv.V ?? 0) * 100),
+          a: Math.round((pv.A ?? 0) * 100),
+          r: Math.round((pv.R ?? 0) * 100),
+          k: Math.round((pv.K ?? 0) * 100),
+        });
+        setKpis((prev) => prev.map((kpi) => {
+          if (kpi.label === 'Recursos completados') return { ...kpi, value: d.total_recursos_vistos, trend: 0 };
+          if (kpi.label === 'Quizzes aprobados')    return { ...kpi, value: d.total_quizzes_realizados, trend: 0 };
+          return kpi;
+        }));
+      })
+      .catch(() => {});
+    misRecomendaciones()
+      .then((recs) => {
+        if (!mounted || recs.length === 0) return;
+        setRecomendados(recs.slice(0, 3).map((r) => ({
+          id: String(r.id),
+          titulo: r.recurso_titulo,
+          tipo: TIPO_MAP_API[r.recurso_tipo] ?? 'documento',
+          vark: r.recurso_categoria_vark,
+          compatibilidad: Math.round(r.puntuacion * 100),
+          tema: r.tema_nombre,
+        })));
+      })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, []);
+
+  const dominant = getDominant(profile);
 
   return (
     <motion.div
@@ -182,7 +234,7 @@ export default function DashboardPage() {
           }}
         >
           {greeting.emoji} {greeting.text},{' '}
-          <span style={{ color: 'var(--accent-blue)' }}>{MOCK_STUDENT.nombre}</span>
+          <span style={{ color: 'var(--accent-blue)' }}>{studentName}</span>
         </motion.h1>
 
         <motion.div
@@ -196,7 +248,7 @@ export default function DashboardPage() {
           </span>
           <Badge variant={dominant.badge} size="md">{dominant.label}</Badge>
           <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-            · {MOCK_PROFILE[dominant.key]}% de afinidad
+            · {profile[dominant.key]}% de afinidad
           </span>
         </motion.div>
       </div>
@@ -208,7 +260,7 @@ export default function DashboardPage() {
         animate="visible"
         style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}
       >
-        {KPI_ITEMS.map((kpi, i) => {
+        {kpis.map((kpi, i) => {
           const Icon  = kpi.Icon;
           const up    = kpi.trend >= 0;
           const TrendIcon = up ? TrendingUp : TrendingDown;
@@ -302,7 +354,7 @@ export default function DashboardPage() {
             transition={{ duration: 0.55, delay: 0.25, ease: 'easeOut' }}
             style={{ flex: '0 0 auto' }}
           >
-            <RadarChart data={MOCK_PROFILE} size={340} />
+            <RadarChart data={profile} size={340} />
           </motion.div>
 
           {/* VARK dimension breakdown */}
@@ -338,10 +390,10 @@ export default function DashboardPage() {
                     fontFamily: 'var(--font-syne), Syne, sans-serif',
                     fontSize: '1.05rem', fontWeight: 800, color: dim.color,
                   }}>
-                    {MOCK_PROFILE[dim.key]}%
+                    {profile[dim.key]}%
                   </span>
                 </div>
-                <ProgressBar value={MOCK_PROFILE[dim.key]} color={dim.color} delay={0.35 + i * 0.08} />
+                <ProgressBar value={profile[dim.key]} color={dim.color} delay={0.35 + i * 0.08} />
               </motion.div>
             ))}
 
@@ -461,7 +513,7 @@ export default function DashboardPage() {
             animate="visible"
             style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
           >
-            {MOCK_RECOMENDADOS.map((rec, i) => {
+            {recomendados.map((rec, i) => {
               const Icon = TIPO_ICON[rec.tipo];
               const pct  = rec.compatibilidad;
               return (

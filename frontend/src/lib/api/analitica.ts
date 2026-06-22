@@ -6,7 +6,33 @@ import type {
   ResultadosExperimento,
   ExportReporteParams,
   NotificacionAPI,
+  DashboardEstudiante,
+  HistorialVARKDetalle,
+  DashboardAdmin,
+  Perfil360,
 } from './types';
+
+// ─── CU-17: Dashboard personal del estudiante ────────────────────────────────
+
+export function dashboardEstudiante(): Promise<DashboardEstudiante> {
+  return apiRequest<DashboardEstudiante>('/analitica/dashboard/');
+}
+
+// ─── Fase 2: Dashboard del administrador y vista 360° del estudiante ─────────
+
+export function dashboardAdmin(): Promise<DashboardAdmin> {
+  return apiRequest<DashboardAdmin>('/analitica/dashboard/admin/');
+}
+
+export function perfil360Estudiante(id: number): Promise<Perfil360> {
+  return apiRequest<Perfil360>(`/analitica/estudiantes/${id}/perfil-360/`);
+}
+
+// ─── CU-18: Historial detallado de evolución del perfil VARK ─────────────────
+
+export function historialVARKDetalle(): Promise<HistorialVARKDetalle[]> {
+  return apiRequest<HistorialVARKDetalle[]>('/analitica/perfil/historial-detalle/');
+}
 
 // ─── CU-19: Reporte docente ───────────────────────────────────────────────────
 
@@ -50,13 +76,22 @@ export function listarExperimentos(): Promise<ExperimentoAB[]> {
   return apiRequest<ExperimentoAB[]>('/analitica/experimentos/');
 }
 
+export function crearExperimento(
+  data: Pick<ExperimentoAB, 'nombre' | 'descripcion'> & Partial<Pick<ExperimentoAB, 'estado'>>,
+): Promise<ExperimentoAB> {
+  return apiRequest<ExperimentoAB>('/analitica/experimentos/', {
+    method: 'POST',
+    body: data,
+  });
+}
+
 export function actualizarExperimento(
   pk: number,
   data: Partial<Pick<ExperimentoAB, 'nombre' | 'descripcion' | 'estado'>>,
 ): Promise<ExperimentoAB> {
   return apiRequest<ExperimentoAB>(`/analitica/experimentos/${pk}/`, {
     method: 'PUT',
-    body: JSON.stringify(data),
+    body: data,
   });
 }
 
@@ -66,7 +101,7 @@ export function asignarEstudiantes(
 ): Promise<{ asignados: number; omitidos: number; grupo: string }> {
   return apiRequest(`/analitica/experimentos/${pk}/asignar/`, {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: payload,
   });
 }
 
@@ -90,5 +125,15 @@ export function marcarNotificacionLeida(pk: number): Promise<{ detail: string }>
 export function marcarTodasLeidas(): Promise<{ detail: string }> {
   return apiRequest<{ detail: string }>('/analitica/notificaciones/leer-todas/', {
     method: 'POST',
+  });
+}
+
+// CU-22: Enviar notificación de nuevo recurso (docente/admin)
+export function enviarNotificacionNuevoRecurso(
+  recursoId: number,
+): Promise<{ detail: string; categoria_vark: string }> {
+  return apiRequest('/analitica/notificaciones/nuevo-recurso/', {
+    method: 'POST',
+    body: { recurso_id: recursoId },
   });
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   LayoutDashboard,
@@ -16,26 +16,53 @@ import {
   Activity,
   FlaskConical,
   LogOut,
+  Users,
+  GraduationCap,
 } from "lucide-react";
+import { useAuth, type Rol } from "@/lib/auth/AuthContext";
 
 type NavItem = { href: string; label: string; icon: React.ElementType };
 
-const mainNav: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/test-vark", label: "Test VARK", icon: Brain },
-  { href: "/temas", label: "Temas", icon: BookOpen },
-  { href: "/preguntas", label: "Preguntas", icon: HelpCircle },
-  { href: "/recursos", label: "Recursos", icon: FileText },
-  { href: "/recomendaciones", label: "Recomendaciones", icon: Sparkles },
-  { href: "/historial", label: "Historial", icon: Clock },
-  { href: "/reportes", label: "Reportes", icon: BarChart3 },
-];
+// ─── Navegación por rol (solo rutas que ya existen) ───────────────────────────
+const NAV_GENERAL: Record<Rol, NavItem[]> = {
+  estudiante: [
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/test-vark", label: "Test VARK", icon: Brain },
+    { href: "/temas", label: "Temas", icon: BookOpen },
+    { href: "/recursos", label: "Recursos", icon: FileText },
+    { href: "/recomendaciones", label: "Recomendaciones", icon: Sparkles },
+    { href: "/historial", label: "Historial", icon: Clock },
+  ],
+  docente: [
+    { href: "/temas", label: "Temas", icon: BookOpen },
+    { href: "/preguntas", label: "Preguntas", icon: HelpCircle },
+    { href: "/recursos", label: "Recursos", icon: FileText },
+    { href: "/reportes", label: "Reportes", icon: BarChart3 },
+  ],
+  administrador: [
+    { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/admin/estudiantes", label: "Estudiantes", icon: GraduationCap },
+    { href: "/admin/usuarios", label: "Usuarios", icon: Users },
+    { href: "/temas", label: "Temas", icon: BookOpen },
+    { href: "/preguntas", label: "Preguntas", icon: HelpCircle },
+    { href: "/recursos", label: "Recursos", icon: FileText },
+    { href: "/reportes", label: "Reportes", icon: BarChart3 },
+  ],
+};
 
-const adminNav: NavItem[] = [
+// Sección "Admin" (solo administrador)
+const NAV_ADMIN: NavItem[] = [
+  { href: "/admin/test-vark", label: "Test VARK", icon: Brain },
   { href: "/admin/configuracion", label: "Configuración", icon: Settings },
   { href: "/admin/clickstream", label: "Clickstream", icon: Activity },
   { href: "/admin/experimento", label: "Experimento A/B", icon: FlaskConical },
 ];
+
+const ROL_LABEL: Record<Rol, string> = {
+  administrador: "Administrador",
+  docente: "Docente",
+  estudiante: "Estudiante",
+};
 
 function NavItem({ item, active }: { item: NavItem; active: boolean }) {
   return (
@@ -92,45 +119,36 @@ function NavItem({ item, active }: { item: NavItem; active: boolean }) {
   );
 }
 
-// lib/api/auth.js
-const API_URL = "http://localhost:8000/api";
+// export async function logout() {
+//   const refresh = localStorage.getItem("refresh_token");
 
-export async function logout() {
-  const refresh = localStorage.getItem("refresh_token");
-
-  try {
-    // Avisar al backend para invalidar el refresh token (si tienes blacklist activado)
-    if (refresh) {
-      await fetch(`${API_URL}/accounts/logout/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh }),
-      });
-    }
-  } catch (error) {
-    // ⚠️ Nunca bloquees al usuario si el backend falla
-    console.warn("⚠️ Error al notificar logout al backend:", error);
-  } finally {
-    // Limpieza local garantizada
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    localStorage.removeItem("user");
-    localStorage.removeItem("vark_completado");
-  }
-}
+//   try {
+//     // Avisar al backend para invalidar el refresh token (si tienes blacklist activado)
+//     if (refresh) {
+//       await apiLogout(refresh); // 👈 usa tu función tipada
+//     }
+//   } catch (error) {
+//     // ⚠️ Nunca bloquees al usuario si el backend falla
+//     console.warn("⚠️ Error al notificar logout al backend:", error);
+//   } finally {
+//     // Limpieza local garantizada
+//     localStorage.removeItem("access_token");
+//     localStorage.removeItem("refresh_token");
+//     localStorage.removeItem("user");
+//     localStorage.removeItem("vark_completado");
+//   }
+// }
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
+  const { user, logout } = useAuth();
+  const rol = (user?.rol ?? "estudiante") as Rol;
+  const generalNav = NAV_GENERAL[rol] ?? NAV_GENERAL.estudiante;
+
   const isActive = (href: string) =>
     href === "/dashboard"
       ? pathname === "/dashboard"
       : pathname.startsWith(href);
-  // ✅ Manejador de logout
-  const handleLogout = async () => {
-    await logout();
-    router.push("/login"); // Redirección segura
-  };
 
   return (
     <motion.aside
@@ -235,37 +253,39 @@ export default function Sidebar() {
         >
           General
         </p>
-        {mainNav.map((item) => (
+        {generalNav.map((item) => (
           <NavItem key={item.href} item={item} active={isActive(item.href)} />
         ))}
 
-        <div
-          style={{
-            borderTop: "1px solid var(--border-glass)",
-            margin: "14px 4px 10px",
-            paddingTop: 12,
-          }}
-        >
-          <p
+        {rol === "administrador" && (
+          <div
             style={{
-              margin: "0 0 6px 4px",
-              fontSize: "0.6rem",
-              fontWeight: 700,
-              color: "var(--text-muted)",
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+              borderTop: "1px solid var(--border-glass)",
+              margin: "14px 4px 10px",
+              paddingTop: 12,
             }}
           >
-            Admin
-          </p>
-          {adminNav.map((item) => (
-            <NavItem key={item.href} item={item} active={isActive(item.href)} />
-          ))}
-        </div>
+            <p
+              style={{
+                margin: "0 0 6px 4px",
+                fontSize: "0.6rem",
+                fontWeight: 700,
+                color: "var(--text-muted)",
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+              }}
+            >
+              Admin
+            </p>
+            {NAV_ADMIN.map((item) => (
+              <NavItem key={item.href} item={item} active={isActive(item.href)} />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Logout */}
+      {/* Usuario + Logout */}
       <div
         style={{
           padding: "10px 10px 14px",
@@ -273,9 +293,68 @@ export default function Sidebar() {
           flexShrink: 0,
         }}
       >
+        {user && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "6px 12px 10px",
+            }}
+          >
+            <div
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: "50%",
+                background: "rgba(59,110,248,0.15)",
+                border: "1px solid rgba(59,110,248,0.3)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                fontSize: "0.72rem",
+                fontWeight: 700,
+                color: "var(--accent-blue)",
+                fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+              }}
+            >
+              {(user.nombre?.[0] ?? "") + (user.apellido?.[0] ?? "")}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "0.78rem",
+                  fontWeight: 600,
+                  color: "var(--text-primary)",
+                  fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {user.nombre_completo}
+              </p>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "0.62rem",
+                  color: "var(--text-muted)",
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+                }}
+              >
+                {ROL_LABEL[rol]}
+              </p>
+            </div>
+          </div>
+        )}
         <motion.button
           whileHover={{ x: 3 }}
           whileTap={{ scale: 0.97 }}
+          onClick={logout}
           style={{
             display: "flex",
             alignItems: "center",

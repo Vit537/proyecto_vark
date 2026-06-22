@@ -1,16 +1,23 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Edit2, Trash2, Eye, HelpCircle,
-  CheckCircle2, Circle, BookOpen, X, AlertCircle,
+  CheckCircle2, Circle, BookOpen, X, AlertCircle, Sparkles, Wand2,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
 import Select, { SelectOption } from '@/components/ui/Select';
 import Input from '@/components/ui/Input';
+import {
+  listarPreguntas, crearPregunta, actualizarPregunta, eliminarPregunta, listarTemas,
+  sugerirPreguntasIA,
+} from '@/lib/api/contenido';
+import type {
+  Pregunta as PreguntaAPI, NivelDificultad, PreguntaPayload, OrigenPregunta,
+} from '@/lib/api/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Dificultad = 'Fácil' | 'Media' | 'Difícil';
@@ -29,6 +36,7 @@ interface Pregunta {
   correctaId: string;
   creadoPor: string;
   fecha: string;
+  origen?: OrigenPregunta;
 }
 
 interface FormState {
@@ -198,6 +206,44 @@ const TEMA_LABEL: Record<string, string> = {
   matrices: 'Matrices',
 };
 
+// ─── API ↔ UI mapping ─────────────────────────────────────────────────────────
+const DIF_API_TO_UI: Record<NivelDificultad, Dificultad> = {
+  facil: 'Fácil', media: 'Media', dificil: 'Difícil',
+};
+const DIF_UI_TO_API: Record<Dificultad, NivelDificultad> = {
+  'Fácil': 'facil', 'Media': 'media', 'Difícil': 'dificil',
+};
+const LETRAS = ['a', 'b', 'c', 'd', 'e', 'f'];
+
+function mapPreguntaAPI(p: PreguntaAPI): Pregunta {
+  const opciones = p.opciones.map((o, i) => ({ id: LETRAS[i] ?? String(i), texto: o.texto }));
+  const correctaIdx = p.opciones.findIndex((o) => o.es_correcta);
+  return {
+    id: String(p.id),
+    enunciado: p.enunciado,
+    tema: String(p.tema),
+    dificultad: DIF_API_TO_UI[p.nivel_dificultad] ?? 'Fácil',
+    opciones,
+    correctaId: opciones[correctaIdx]?.id ?? opciones[0]?.id ?? 'a',
+    creadoPor: 'Docente',
+    fecha: p.fecha_creacion ? new Date(p.fecha_creacion).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) : '',
+    origen: p.origen,
+  };
+}
+
+// ─── Editor de candidata IA (Fase 4) ──────────────────────────────────────────
+interface CandidataEditor {
+  enunciado: string;
+  explicacion: string;
+  opciones: { texto: string }[];
+  correctaIdx: number;
+}
+const DIFICULTADES_IA: SelectOption[] = [
+  { value: 'facil', label: 'Fácil' },
+  { value: 'media', label: 'Media' },
+  { value: 'dificil', label: 'Difícil' },
+];
+
 function newOpcion(id: string): Opcion {
   return { id, texto: '' };
 }
@@ -237,6 +283,29 @@ const rowVariants = {
 export default function PreguntasPage() {
   const [preguntas, setPreguntas] = useState<Pregunta[]>(MOCK_PREGUNTAS);
 
+  // Temas reales (CU-04) para selects y etiquetas
+  const [temaOpts, setTemaOpts] = useState<SelectOption[]>(TEMAS);
+  const temaLabelMap = useMemo(
+    () => Object.fromEntries(temaOpts.map((t) => [t.value, t.label])) as Record<string, string>,
+    [temaOpts],
+  );
+
+  // Carga inicial desde el backend (CU-05)
+  useEffect(() => {
+    let mounted = true;
+    listarTemas()
+      .then((temas) => {
+        if (mounted && temas.length) {
+          setTemaOpts(temas.map((t) => ({ value: String(t.id), label: t.nombre })));
+        }
+      })
+      .catch(() => { /* fallback a TEMAS estáticos */ });
+    listarPreguntas()
+      .then((data) => { if (mounted) setPreguntas(data.map(mapPreguntaAPI)); })
+      .catch(() => { /* se mantienen datos de respaldo */ });
+    return () => { mounted = false; };
+  }, []);
+
   // Filters
   const [filterTema,       setFilterTema]       = useState('');
   const [filterDificultad, setFilterDificultad] = useState('');
@@ -256,6 +325,74 @@ export default function PreguntasPage() {
 
   // Delete confirmation
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // ── Generar con IA (Fase 4) ──────────────────────────────────────────────────
+  const [iaOpen, setIaOpen] = useState(false);
+  const [iaTema, setIaTema] = useState('');
+  const [iaDificultad, setIaDificultad] = useState('facil');
+  const [iaCantidad, setIaCantidad] = useState(5);
+  const [iaLoading, setIaLoading] = useState(false);
+  const [iaError, setIaError] = useState<string | null>(null);
+  const [iaCandidatas, setIaCandidatas] = useState<CandidataEditor[]>([]);
+  const [iaAprobadas, setIaAprobadas] = useState(0);
+  const [iaSavingIdx, setIaSavingIdx] = useState<number | null>(null);
+
+  const openIA = () => {
+    setIaTema(filterTema || ''); setIaDificultad('facil'); setIaCantidad(5);
+    setIaCandidatas([]); setIaAprobadas(0); setIaError(null); setIaOpen(true);
+  };
+
+  const handleGenerarIA = async () => {
+    if (!iaTema) { setIaError('Selecciona un tema.'); return; }
+    setIaLoading(true); setIaError(null);
+    try {
+      const data = await sugerirPreguntasIA(Number(iaTema), iaDificultad as NivelDificultad, iaCantidad);
+      setIaCandidatas(data.preguntas.map((c) => ({
+        enunciado: c.enunciado,
+        explicacion: c.explicacion,
+        opciones: c.opciones.map((o) => ({ texto: o.texto })),
+        correctaIdx: Math.max(0, c.opciones.findIndex((o) => o.es_correcta)),
+      })));
+      setIaAprobadas(0);
+      if (data.preguntas.length === 0) setIaError('La IA no devolvió preguntas. Intenta de nuevo.');
+    } catch (e) {
+      setIaError(e instanceof Error ? e.message : 'No se pudo generar con IA. Puedes crear preguntas manualmente.');
+    } finally { setIaLoading(false); }
+  };
+
+  const setCand = (idx: number, patch: Partial<CandidataEditor>) =>
+    setIaCandidatas((prev) => prev.map((c, i) => (i === idx ? { ...c, ...patch } : c)));
+  const setCandOpcion = (idx: number, oi: number, texto: string) =>
+    setIaCandidatas((prev) => prev.map((c, i) => i === idx
+      ? { ...c, opciones: c.opciones.map((o, j) => (j === oi ? { texto } : o)) } : c));
+
+  const handleAprobarIA = async (idx: number) => {
+    const c = iaCandidatas[idx];
+    const conTexto = c.opciones.filter((o) => o.texto.trim());
+    if (!c.enunciado.trim() || conTexto.length < 2) { setIaError('Completa el enunciado y al menos 2 opciones.'); return; }
+    if (!c.opciones[c.correctaIdx]?.texto.trim()) { setIaError('La opción marcada como correcta no puede estar vacía.'); return; }
+    setIaSavingIdx(idx); setIaError(null);
+    try {
+      const payload: PreguntaPayload = {
+        enunciado: c.enunciado.trim(),
+        tema: Number(iaTema),
+        nivel_dificultad: iaDificultad as NivelDificultad,
+        origen: 'ia',
+        explicacion: c.explicacion.trim(),
+        opciones: c.opciones
+          .map((o, i) => ({ texto: o.texto.trim(), es_correcta: i === c.correctaIdx }))
+          .filter((o) => o.texto),
+      };
+      const created = await crearPregunta(payload);
+      setPreguntas((prev) => [mapPreguntaAPI(created), ...prev]);
+      setIaCandidatas((prev) => prev.filter((_, i) => i !== idx));
+      setIaAprobadas((n) => n + 1);
+    } catch (e) {
+      setIaError(e instanceof Error ? e.message : 'Error al aprobar la pregunta.');
+    } finally { setIaSavingIdx(null); }
+  };
+
+  const handleDescartarIA = (idx: number) => setIaCandidatas((prev) => prev.filter((_, i) => i !== idx));
 
   // ─── Filtered data ──────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -301,41 +438,38 @@ export default function PreguntasPage() {
     return Object.keys(errs).length === 0;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validate()) return;
     setSaving(true);
-    setTimeout(() => {
-      const opcionesConTexto = form.opciones.filter((o) => o.texto.trim());
+    const opcionesConTexto = form.opciones.filter((o) => o.texto.trim());
+    const payload = {
+      enunciado: form.enunciado.trim(),
+      tema: Number(form.tema),
+      nivel_dificultad: DIF_UI_TO_API[form.dificultad as Dificultad],
+      opciones: opcionesConTexto.map((o) => ({
+        texto: o.texto.trim(),
+        es_correcta: o.id === form.correctaId,
+      })),
+    };
+    try {
       if (editingId) {
-        setPreguntas((prev) =>
-          prev.map((p) =>
-            p.id === editingId
-              ? { ...p, enunciado: form.enunciado.trim(), tema: form.tema,
-                  dificultad: form.dificultad as Dificultad,
-                  opciones: opcionesConTexto, correctaId: form.correctaId }
-              : p,
-          ),
-        );
+        const updated = await actualizarPregunta(Number(editingId), payload);
+        setPreguntas((prev) => prev.map((p) => (p.id === editingId ? mapPreguntaAPI(updated) : p)));
       } else {
-        const nueva: Pregunta = {
-          id:         String(Date.now()),
-          enunciado:  form.enunciado.trim(),
-          tema:       form.tema,
-          dificultad: form.dificultad as Dificultad,
-          opciones:   opcionesConTexto,
-          correctaId: form.correctaId,
-          creadoPor:  'Docente',
-          fecha:      new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }),
-        };
-        setPreguntas((prev) => [nueva, ...prev]);
+        const created = await crearPregunta(payload);
+        setPreguntas((prev) => [mapPreguntaAPI(created), ...prev]);
       }
-      setSaving(false);
       setFormOpen(false);
-    }, 600);
+    } catch (err) {
+      setFormErrors({ enunciado: err instanceof Error ? err.message : 'Error al guardar.' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = (id: string) => {
     setPreguntas((prev) => prev.filter((p) => p.id !== id));
+    eliminarPregunta(Number(id)).catch(() => { /* cambio optimista en la UI */ });
     setDeleteId(null);
   };
 
@@ -404,10 +538,16 @@ export default function PreguntasPage() {
           </Badge>
         </div>
 
-        <Button variant="primary" onClick={openCreate}>
-          <Plus size={16} />
-          Nueva pregunta
-        </Button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <Button variant="outline" onClick={openIA}>
+            <Sparkles size={16} />
+            Generar con IA
+          </Button>
+          <Button variant="primary" onClick={openCreate}>
+            <Plus size={16} />
+            Nueva pregunta
+          </Button>
+        </div>
       </div>
 
       {/* ── Filters ────────────────────────────────────────────────────────── */}
@@ -423,7 +563,7 @@ export default function PreguntasPage() {
         <div style={{ flex: '1 1 220px', maxWidth: 280 }}>
           <Select
             label="Filtrar por tema"
-            options={TEMAS}
+            options={temaOpts}
             value={filterTema}
             onChange={setFilterTema}
             nullable
@@ -463,7 +603,7 @@ export default function PreguntasPage() {
                     cursor: 'pointer', letterSpacing: '0.05em',
                   }}
                 >
-                  {TEMA_LABEL[filterTema]}
+                  {temaLabelMap[filterTema]}
                   <X size={11} />
                 </button>
               )}
@@ -603,13 +743,16 @@ export default function PreguntasPage() {
                       }}
                     >
                       {p.creadoPor} · {p.fecha}
+                      {p.origen === 'ia' && (
+                        <span style={{ color: 'var(--accent-purple)', fontWeight: 700 }}> · IA</span>
+                      )}
                     </span>
                   </div>
 
                   {/* Tema */}
                   <div>
                     <Badge variant="vark-v" size="sm">
-                      {TEMA_LABEL[p.tema] ?? p.tema}
+                      {temaLabelMap[p.tema] ?? p.tema}
                     </Badge>
                   </div>
 
@@ -779,7 +922,7 @@ export default function PreguntasPage() {
             <div>
               <Select
                 label="Tema"
-                options={TEMAS}
+                options={temaOpts}
                 value={form.tema}
                 onChange={(v) => setForm((p) => ({ ...p, tema: v }))}
                 error={formErrors.tema}
@@ -956,7 +1099,7 @@ export default function PreguntasPage() {
             {/* Badges */}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <Badge variant="vark-v" size="sm">
-                {TEMA_LABEL[previewPregunta.tema] ?? previewPregunta.tema}
+                {temaLabelMap[previewPregunta.tema] ?? previewPregunta.tema}
               </Badge>
               <Badge variant={DIFICULTAD_VARIANT[previewPregunta.dificultad]} size="sm">
                 {previewPregunta.dificultad}
@@ -1138,9 +1281,113 @@ export default function PreguntasPage() {
           </div>
         </div>
       </Modal>
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+          MODAL: Generar preguntas con IA (Fase 4)
+      ════════════════════════════════════════════════════════════════════════ */}
+      <Modal open={iaOpen} onClose={() => setIaOpen(false)} title="Generar preguntas con IA" maxWidth={720}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          {/* Controles */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 110px auto', gap: 12, alignItems: 'flex-end' }}>
+            <Select label="Tema" options={temaOpts} value={iaTema} onChange={setIaTema} />
+            <Select label="Dificultad" options={DIFICULTADES_IA} value={iaDificultad} onChange={setIaDificultad} />
+            <Input id="ia-cantidad" label="Cantidad" type="number"
+              value={String(iaCantidad)} onChange={(e) => setIaCantidad(Number(e.target.value) || 0)} />
+            <Button variant="primary" onClick={handleGenerarIA} loading={iaLoading}>
+              <Wand2 size={15} />&nbsp;Generar
+            </Button>
+          </div>
+
+          <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '11px 14px', borderRadius: 'var(--radius-md)', background: 'rgba(167,139,250,0.07)', border: '1px solid rgba(167,139,250,0.2)' }}>
+            <Sparkles size={16} color="var(--accent-purple)" style={{ flexShrink: 0, marginTop: 1 }} />
+            <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.6, fontFamily: 'var(--font-dm-sans)' }}>
+              La IA propone preguntas candidatas. Revisa y edita cada una, marca la opción correcta y aprueba las que quieras añadir al banco. Si la IA no está disponible, sigue funcionando la creación manual.
+            </p>
+          </div>
+
+          {iaError && (
+            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--danger)', fontFamily: 'var(--font-dm-sans)' }}>{iaError}</p>
+          )}
+          {iaAprobadas > 0 && (
+            <Badge variant="success" size="sm">{iaAprobadas} pregunta(s) añadida(s) al banco</Badge>
+          )}
+
+          {/* Candidatas */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxHeight: '46vh', overflowY: 'auto' }}>
+            {iaCandidatas.map((c, idx) => (
+              <motion.div key={idx} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                style={{ padding: '16px 18px', borderRadius: 'var(--radius-md)', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-dm-sans)' }}>
+                    Candidata #{idx + 1}
+                  </span>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <Button variant="ghost" onClick={() => handleDescartarIA(idx)}><X size={14} />&nbsp;Descartar</Button>
+                    <Button variant="primary" onClick={() => handleAprobarIA(idx)} loading={iaSavingIdx === idx}>
+                      <CheckCircle2 size={14} />&nbsp;Aprobar
+                    </Button>
+                  </div>
+                </div>
+
+                <textarea value={c.enunciado} onChange={(e) => setCand(idx, { enunciado: e.target.value })}
+                  rows={2} placeholder="Enunciado" style={iaTextarea} />
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+                  {c.opciones.map((o, oi) => {
+                    const correcta = c.correctaIdx === oi;
+                    return (
+                      <div key={oi} style={{
+                        display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 'var(--radius-sm)',
+                        border: `1px solid ${correcta ? 'rgba(0,230,118,0.4)' : 'var(--border-glass)'}`,
+                        background: correcta ? 'rgba(0,230,118,0.06)' : 'transparent',
+                      }}>
+                        <button type="button" onClick={() => setCand(idx, { correctaIdx: oi })} title="Marcar correcta"
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: correcta ? 'var(--success)' : 'var(--text-muted)', display: 'flex', flexShrink: 0 }}>
+                          {correcta ? <CheckCircle2 size={17} /> : <Circle size={17} />}
+                        </button>
+                        <input type="text" value={o.texto} onChange={(e) => setCandOpcion(idx, oi, e.target.value)}
+                          placeholder={`Opción ${LETRAS[oi]?.toUpperCase()}`}
+                          style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: 'var(--text-primary)', fontFamily: 'var(--font-dm-sans)', fontSize: '0.85rem' }} />
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div style={{ marginTop: 10 }}>
+                  <label style={{ fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.05em', textTransform: 'uppercase', fontFamily: 'var(--font-dm-sans)', display: 'block', marginBottom: 6 }}>
+                    Explicación (retroalimentación)
+                  </label>
+                  <textarea value={c.explicacion} onChange={(e) => setCand(idx, { explicacion: e.target.value })}
+                    rows={2} placeholder="Por qué la respuesta correcta es correcta" style={iaTextarea} />
+                </div>
+              </motion.div>
+            ))}
+
+            {iaCandidatas.length === 0 && !iaLoading && (
+              <div style={{ textAlign: 'center', padding: '30px 20px', color: 'var(--text-muted)' }}>
+                <Sparkles size={30} strokeWidth={1.2} />
+                <p style={{ marginTop: 10, fontSize: '0.85rem', fontFamily: 'var(--font-dm-sans)' }}>
+                  Elige tema y dificultad y pulsa &ldquo;Generar&rdquo; para obtener preguntas candidatas.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 6, borderTop: '1px solid var(--border-glass)' }}>
+            <Button variant="ghost" onClick={() => setIaOpen(false)}>Cerrar</Button>
+          </div>
+        </div>
+      </Modal>
     </motion.div>
   );
 }
+
+const iaTextarea: React.CSSProperties = {
+  width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)',
+  border: '1px solid var(--border-glass)', background: 'var(--bg-card)', color: 'var(--text-primary)',
+  fontFamily: 'var(--font-dm-sans), DM Sans, sans-serif', fontSize: '0.85rem', resize: 'vertical',
+  outline: 'none', boxSizing: 'border-box', lineHeight: 1.5,
+};
 
 // ─── ErrorMsg helper ──────────────────────────────────────────────────────────
 function ErrorMsg({ msg }: { msg: string }) {

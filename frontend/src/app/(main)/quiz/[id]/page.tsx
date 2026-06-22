@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useParams } from 'next/navigation';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
 import {
   ArrowRight, CheckCircle, XCircle, RotateCcw,
@@ -10,6 +11,8 @@ import BackgroundPattern from '@/components/layout/BackgroundPattern';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
+import { obtenerPreguntasQuiz, responderQuiz } from '@/lib/api/contenido';
+import type { ResultadoQuiz } from '@/lib/api/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Opcion {
@@ -151,45 +154,98 @@ function CircularProgress({ pct, color }: { pct: number; color: string }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 type Screen = 'start' | 'question' | 'result';
 
+const LETRAS = ['a', 'b', 'c', 'd', 'e', 'f'];
+
 export default function QuizPage() {
+  const params = useParams();
+  const temaId = Number(Array.isArray(params?.id) ? params.id[0] : params?.id);
+
   const [screen,      setScreen]      = useState<Screen>('start');
   const [currentIdx,  setCurrentIdx]  = useState(0);
-  const [respuestas,  setRespuestas]  = useState<Record<string, string>>({});   // preguntaId → opcionId elegida
+  const [respuestas,  setRespuestas]  = useState<Record<string, string>>({});   // preguntaId → letra elegida
   const [selectedOpt, setSelectedOpt] = useState<string | null>(null);
   const [direction,   setDirection]   = useState(1);   // 1 = fwd, -1 = bwd
   const [exitModal,   setExitModal]   = useState(false);
   const [calculating, setCalculating] = useState(false);
 
-  const total    = PREGUNTAS.length;
-  const pregunta = PREGUNTAS[currentIdx];
+  // ── Datos del backend (CU-07) ───────────────────────────────────────────────
+  const [preguntas,  setPreguntas]  = useState<Pregunta[]>(PREGUNTAS);
+  const [quizMeta,   setQuizMeta]   = useState<QuizMeta>(QUIZ_META);
+  const [opcionBackendId, setOpcionBackendId] = useState<Record<string, number>>({});
+  const [resultado,  setResultado]  = useState<ResultadoQuiz | null>(null);
+  const [, setLoadError]  = useState<string | null>(null);
+
+  // Carga las preguntas reales del tema (sin revelar la respuesta correcta)
+  useEffect(() => {
+    if (!temaId) return;
+    let mounted = true;
+    obtenerPreguntasQuiz(temaId)
+      .then((data) => {
+        if (!mounted) return;
+        const map: Record<string, number> = {};
+        const mapped: Pregunta[] = data.preguntas.map((p) => {
+          const opciones = p.opciones.map((o, i) => {
+            const letra = LETRAS[i] ?? String(i);
+            map[`${p.id}:${letra}`] = o.id;
+            return { id: letra, texto: o.texto };
+          });
+          return { id: String(p.id), enunciado: p.enunciado, opciones, correctaId: '' };
+        });
+        setPreguntas(mapped);
+        setOpcionBackendId(map);
+        if (data.preguntas[0]) {
+          setQuizMeta((m) => ({ ...m, titulo: `Quiz: ${data.preguntas[0].tema_nombre}`, tema: data.preguntas[0].tema_nombre }));
+        }
+      })
+      .catch((err) => { if (mounted) setLoadError(err instanceof Error ? err.message : 'Error al cargar el quiz.'); });
+    return () => { mounted = false; };
+  }, [temaId]);
+
+  const total    = preguntas.length;
+  const pregunta = preguntas[currentIdx];
   const isLast   = currentIdx === total - 1;
 
-  // ── Score ──────────────────────────────────────────────────────────────────
-  const correctas = PREGUNTAS.filter(
-    (p) => respuestas[p.id] === p.correctaId,
-  ).length;
-  const pct = Math.round((correctas / total) * 100);
+  // ── Score (calculado por el backend) ─────────────────────────────────────────
+  const correctas = resultado?.respuestas_correctas ?? 0;
+  const pct = resultado ? Math.round(resultado.puntaje * 100) : 0;
+  const esCorrectaMap: Record<string, boolean> = {};
+  (resultado?.respuestas_json ?? []).forEach((r) => {
+    esCorrectaMap[String(r.pregunta_id)] = r.es_correcta;
+  });
   const resultColor =
     pct >= 70 ? 'var(--success)' :
     pct >= 40 ? 'var(--warning)' :
     'var(--danger)';
 
   // ── Handlers ───────────────────────────────────────────────────────────────
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!selectedOpt) return;
     const updated = { ...respuestas, [pregunta.id]: selectedOpt };
     setRespuestas(updated);
 
     if (isLast) {
       setCalculating(true);
-      setTimeout(() => {
-        setCalculating(false);
+      try {
+        const payload = {
+          tema_id: temaId,
+          respuestas: Object.entries(updated).map(([pid, letra]) => ({
+            pregunta_id: Number(pid),
+            opcion_id: opcionBackendId[`${pid}:${letra}`],
+          })),
+        };
+        const res = await responderQuiz(payload);
+        setResultado(res);
         setScreen('result');
-      }, 900);
+      } catch {
+        // Si falla el envío, igualmente mostramos la pantalla de resultado.
+        setScreen('result');
+      } finally {
+        setCalculating(false);
+      }
       return;
     }
     setDirection(1);
-    setSelectedOpt(respuestas[PREGUNTAS[currentIdx + 1]?.id] ?? null);
+    setSelectedOpt(respuestas[preguntas[currentIdx + 1]?.id] ?? null);
     setCurrentIdx((i) => i + 1);
   };
 
@@ -198,6 +254,7 @@ export default function QuizPage() {
     setSelectedOpt(null);
     setCurrentIdx(0);
     setDirection(1);
+    setResultado(null);
     setScreen('start');
   };
 
@@ -278,9 +335,9 @@ export default function QuizPage() {
                     lineHeight: 1.2,
                   }}
                 >
-                  {QUIZ_META.titulo.split(':')[0]}:{' '}
+                  {quizMeta.titulo.split(':')[0]}:{' '}
                   <span style={{ color: 'var(--accent-blue)' }}>
-                    {QUIZ_META.titulo.split(':')[1]?.trim()}
+                    {quizMeta.titulo.split(':')[1]?.trim()}
                   </span>
                 </h1>
 
@@ -292,7 +349,7 @@ export default function QuizPage() {
                     margin: '0 0 28px',
                   }}
                 >
-                  {QUIZ_META.descripcion}
+                  {quizMeta.descripcion}
                 </p>
 
                 {/* Meta chips */}
@@ -308,10 +365,10 @@ export default function QuizPage() {
                   </div>
                   <div style={metaChip}>
                     <Clock size={13} color="var(--text-muted)" />
-                    <span>{QUIZ_META.tiempoEstimado}</span>
+                    <span>{quizMeta.tiempoEstimado}</span>
                   </div>
-                  <Badge variant={DIFICULTAD_VARIANT[QUIZ_META.dificultad]} size="sm">
-                    {QUIZ_META.dificultad}
+                  <Badge variant={DIFICULTAD_VARIANT[quizMeta.dificultad]} size="sm">
+                    {quizMeta.dificultad}
                   </Badge>
                 </div>
 
@@ -665,11 +722,10 @@ export default function QuizPage() {
                     paddingRight: 4,
                   }}
                 >
-                  {PREGUNTAS.map((p, idx) => {
+                  {preguntas.map((p, idx) => {
                     const elegida    = respuestas[p.id];
-                    const acertada   = elegida === p.correctaId;
+                    const acertada   = esCorrectaMap[p.id] ?? false;
                     const opElegida  = p.opciones.find((o) => o.id === elegida);
-                    const opCorrecta = p.opciones.find((o) => o.id === p.correctaId);
 
                     return (
                       <motion.div
@@ -710,14 +766,6 @@ export default function QuizPage() {
                                 >
                                   Tu respuesta: <strong>{opElegida?.texto ?? '—'}</strong>
                                 </span>
-                                <span
-                                  style={{
-                                    fontSize: '0.75rem', color: 'var(--success)',
-                                    fontFamily: 'var(--font-dm-sans)',
-                                  }}
-                                >
-                                  Correcta: <strong>{opCorrecta?.texto}</strong>
-                                </span>
                               </div>
                             )}
                             {acertada && (
@@ -727,7 +775,7 @@ export default function QuizPage() {
                                   fontFamily: 'var(--font-dm-sans)',
                                 }}
                               >
-                                ✓ {opCorrecta?.texto}
+                                ✓ {opElegida?.texto}
                               </span>
                             )}
                           </div>

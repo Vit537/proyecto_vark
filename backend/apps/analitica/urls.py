@@ -4,6 +4,7 @@ from django.urls import path
 
 from .views import (
     AsignarEstudiantesView,
+    DashboardAdminView,
     DashboardEstudianteView,
     EnviarNotificacionNuevoRecursoView,
     ExperimentoABDetailView,
@@ -13,6 +14,7 @@ from .views import (
     NotificacionListView,
     NotificacionMarcarLeidaView,
     NotificacionMarcarTodasLeidasView,
+    Perfil360EstudianteView,
     ReporteDocenteView,
     ResultadosExperimentoView,
 )
@@ -20,6 +22,10 @@ from .views import (
 urlpatterns = [
     # CU-17: Dashboard personal estudiante
     path('dashboard/', DashboardEstudianteView.as_view(), name='dashboard-estudiante'),
+
+    # Fase 2: Dashboard del administrador y vista 360° del estudiante
+    path('dashboard/admin/', DashboardAdminView.as_view(), name='dashboard-admin'),
+    path('estudiantes/<int:pk>/perfil-360/', Perfil360EstudianteView.as_view(), name='estudiante-perfil-360'),
 
     # CU-18: Historial detallado de evolución del perfil VARK
     path('perfil/historial-detalle/', HistorialVARKDetalleView.as_view(), name='historial-vark-detalle'),

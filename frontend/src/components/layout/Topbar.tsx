@@ -1,15 +1,21 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bell, X, BookOpen, CheckCircle2, Brain, Info,
-  CheckCheck, ChevronRight, BellOff,
+  CheckCheck, ChevronRight, BellOff, User, LogOut, ChevronDown,
 } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import { listarNotificaciones, marcarNotificacionLeida, marcarTodasLeidas } from '@/lib/api/analitica';
 import type { NotificacionAPI } from '@/lib/api/types';
+import { useAuth, type Rol } from '@/lib/auth/AuthContext';
+
+const ROL_LABEL: Record<Rol, string> = {
+  administrador: 'Administrador', docente: 'Docente', estudiante: 'Estudiante',
+};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -142,19 +148,47 @@ const TABS: { id: TabId; label: string }[] = [
 
 // ─── Topbar ───────────────────────────────────────────────────────────────────
 
+function MenuItem({ onClick, icon, label, danger }: { onClick: () => void; icon: React.ReactNode; label: string; danger?: boolean }) {
+  return (
+    <motion.button
+      onClick={onClick}
+      whileHover={{ x: 2, background: 'var(--bg-glass-hover)' }}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+        padding: '11px 14px', background: 'none', border: 'none', cursor: 'pointer',
+        color: danger ? 'var(--danger)' : 'var(--text-secondary)',
+        fontFamily: 'var(--font-dm-sans), DM Sans, sans-serif', fontSize: '0.82rem', fontWeight: 500,
+        textAlign: 'left',
+      }}
+    >
+      {icon}
+      {label}
+    </motion.button>
+  );
+}
+
 export default function Topbar() {
+  const router                  = useRouter();
+  const { user, logout }        = useAuth();
   const [open, setOpen]         = useState(false);
   const [tab, setTab]           = useState<TabId>('todas');
   const [notifs, setNotifs]     = useState<Notif[]>(INITIAL_NOTIFS);
   const [hoveredId, setHovered] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const loadedRef               = useRef(false);
+
+  const iniciales = user
+    ? (user.nombre?.[0] ?? '') + (user.apellido?.[0] ?? '')
+    : 'U';
 
   // CU-22: Cargar notificaciones la primera vez que se abre el panel
   useEffect(() => {
     if (!open || loadedRef.current) return;
     listarNotificaciones()
       .then((data) => {
-        setNotifs(data.map(toNotif));
+        // Mockups: si el backend no devuelve nada, conservamos las demo para
+        // que el panel nunca se vea vacío (notificaciones pendientes de Firebase).
+        if (data.length > 0) setNotifs(data.map(toNotif));
         loadedRef.current = true;
       })
       .catch(() => {}); // Mantener INITIAL_NOTIFS como fallback
@@ -275,63 +309,79 @@ export default function Topbar() {
           </AnimatePresence>
         </motion.button>
 
-        {/* User avatar */}
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 9,
-            padding: '5px 10px',
-            borderRadius: 'var(--radius-sm)',
-            background: 'var(--bg-glass)',
-            border: '1px solid var(--border-glass)',
-            cursor: 'pointer',
-          }}
-        >
-          <div
+        {/* User avatar + menú */}
+        <div style={{ position: 'relative' }}>
+          <motion.button
+            onClick={() => setMenuOpen((v) => !v)}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             style={{
-              width: 26,
-              height: 26,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-purple))',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '0.68rem',
-              fontWeight: 700,
-              color: '#fff',
-              fontFamily: 'var(--font-syne), Syne, sans-serif',
-              flexShrink: 0,
+              gap: 9,
+              padding: '5px 10px',
+              borderRadius: 'var(--radius-sm)',
+              background: menuOpen ? 'var(--bg-glass-hover)' : 'var(--bg-glass)',
+              border: `1px solid ${menuOpen ? 'var(--accent-blue)' : 'var(--border-glass)'}`,
+              cursor: 'pointer',
+              transition: 'background 0.18s, border-color 0.18s',
             }}
           >
-            U
-          </div>
-          <div>
-            <p
+            <div
               style={{
-                margin: 0,
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                color: 'var(--text-primary)',
-                fontFamily: 'var(--font-dm-sans), DM Sans, sans-serif',
-                lineHeight: 1.2,
+                width: 26,
+                height: 26,
+                borderRadius: '50%',
+                background: user?.foto
+                  ? `url(${user.foto}) center/cover`
+                  : 'linear-gradient(135deg, var(--accent-blue), var(--accent-purple))',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.68rem',
+                fontWeight: 700,
+                color: '#fff',
+                fontFamily: 'var(--font-syne), Syne, sans-serif',
+                flexShrink: 0,
               }}
             >
-              Usuario
-            </p>
-            <p
-              style={{
-                margin: 0,
-                fontSize: '0.62rem',
-                color: 'var(--text-muted)',
-                fontFamily: 'var(--font-dm-sans), DM Sans, sans-serif',
-              }}
-            >
-              Estudiante
-            </p>
-          </div>
-        </motion.div>
+              {!user?.foto && iniciales}
+            </div>
+            <div style={{ textAlign: 'left' }}>
+              <p style={{ margin: 0, fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-dm-sans), DM Sans, sans-serif', lineHeight: 1.2 }}>
+                {user?.nombre_completo ?? 'Usuario'}
+              </p>
+              <p style={{ margin: 0, fontSize: '0.62rem', color: 'var(--text-muted)', fontFamily: 'var(--font-dm-sans), DM Sans, sans-serif' }}>
+                {user ? ROL_LABEL[user.rol as Rol] : ''}
+              </p>
+            </div>
+            <ChevronDown size={14} color="var(--text-muted)" style={{ transform: menuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+          </motion.button>
+
+          <AnimatePresence>
+            {menuOpen && (
+              <>
+                <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 35 }} />
+                <motion.div
+                  initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                  transition={{ duration: 0.18 }}
+                  style={{
+                    position: 'absolute', top: 'calc(100% + 8px)', right: 0, minWidth: 190,
+                    background: 'var(--bg-secondary)', border: '1px solid var(--border-glass)',
+                    borderRadius: 'var(--radius-md)', overflow: 'hidden', zIndex: 36,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                  }}
+                >
+                  <MenuItem onClick={() => { setMenuOpen(false); router.push('/perfil'); }} icon={<User size={15} />} label="Mi perfil" />
+                  <div style={{ height: 1, background: 'var(--border-glass)' }} />
+                  <MenuItem onClick={() => { setMenuOpen(false); logout(); }} icon={<LogOut size={15} />} label="Cerrar sesión" danger />
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </div>
       </motion.header>
 
       {/* ── Overlay ────────────────────────────────────────────────────────── */}

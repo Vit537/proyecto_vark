@@ -1,7 +1,30 @@
+'use client';
+
 import Sidebar from '@/components/layout/Sidebar';
 import Topbar from '@/components/layout/Topbar';
+import { AuthProvider, useAuth } from '@/lib/auth/AuthContext';
+import Spinner from '@/components/ui/Spinner';
 
-export default function MainLayout({ children }: { children: React.ReactNode }) {
+function Shell({ children }: { children: React.ReactNode }) {
+  const { loading, user } = useAuth();
+
+  // Mientras resolvemos sesión/rol, evitamos mostrar la UID equivocada
+  if (loading || !user) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          background: 'var(--bg-primary)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Spinner />
+      </div>
+    );
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
       <Sidebar />
@@ -17,5 +40,13 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         {children}
       </main>
     </div>
+  );
+}
+
+export default function MainLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <AuthProvider>
+      <Shell>{children}</Shell>
+    </AuthProvider>
   );
 }

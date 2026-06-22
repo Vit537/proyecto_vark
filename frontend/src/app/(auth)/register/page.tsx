@@ -16,6 +16,7 @@ type Role = 'estudiante' | 'docente' | '';
 
 interface FormState {
   name: string;
+  lastName: string;
   email: string;
   password: string;
   confirmPassword: string;
@@ -25,6 +26,7 @@ interface FormState {
 
 interface FormErrors {
   name?: string;
+  lastName?: string;
   email?: string;
   password?: string;
   confirmPassword?: string;
@@ -39,6 +41,10 @@ function validateField(field: keyof FormState, value: string, form: FormState): 
     case 'name':
       if (!value.trim()) return 'El nombre completo es requerido.';
       if (value.trim().length < 3) return 'El nombre debe tener al menos 3 caracteres.';
+      break;
+    case 'lastName':
+      if (!value.trim()) return 'El apellido es requerido.';
+      if (value.trim().length < 3) return 'El apellido debe tener al menos 3 caracteres.';
       break;
     case 'email':
       if (!value.trim()) return 'El correo electrónico es requerido.';
@@ -55,9 +61,9 @@ function validateField(field: keyof FormState, value: string, form: FormState): 
     case 'role':
       if (!value) return 'Selecciona un rol.';
       break;
-    case 'teacherCode':
-      if (form.role === 'docente' && !value.trim()) return 'El código de docente es requerido.';
-      break;
+    // case 'teacherCode':
+    //   if (form.role === 'docente' && !value.trim()) return 'El código de docente es requerido.';
+    //   break;
   }
   return undefined;
 }
@@ -139,6 +145,7 @@ export default function RegisterPage() {
 
   const [form, setForm] = useState<FormState>({
     name: '',
+    lastName: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -189,7 +196,7 @@ export default function RegisterPage() {
 
     // Validate all fields
     const fieldsToValidate: (keyof FormState)[] = [
-      'name', 'email', 'password', 'confirmPassword', 'role',
+      'name','lastName', 'email', 'password', 'confirmPassword', 'role',
     ];
     if (form.role === 'docente') fieldsToValidate.push('teacherCode');
 
@@ -209,15 +216,15 @@ export default function RegisterPage() {
 
     try {
       // Split name into nombre + apellido (first word / rest)
-      const nameTrimmed = form.name.trim();
-      const spaceIdx = nameTrimmed.indexOf(' ');
-      const nombre = spaceIdx === -1 ? nameTrimmed : nameTrimmed.slice(0, spaceIdx);
-      const apellido = spaceIdx === -1 ? '' : nameTrimmed.slice(spaceIdx + 1);
+      // const nameTrimmed = form.name.trim();
+      // const spaceIdx = nameTrimmed.indexOf(' ');
+      // const nombre = spaceIdx === -1 ? nameTrimmed : nameTrimmed.slice(0, spaceIdx);
+      // const apellido = spaceIdx === -1 ? '' : nameTrimmed.slice(spaceIdx + 1);
 
       await registroService({
         email: form.email.trim().toLowerCase(),
-        nombre,
-        apellido,
+        nombre: form.name.trim(),
+        apellido: form.lastName.trim(),
         rol: form.role as 'estudiante' | 'docente',
         password: form.password,
       });
@@ -321,6 +328,21 @@ export default function RegisterPage() {
                 onChange={handleChange('name')}
                 onBlur={handleBlur('name')}
                 error={touched.name ? errors.name : undefined}
+                icon={<User size={16} />}
+              />
+            </motion.div>
+
+            {/* Apellido */}
+            <motion.div variants={itemVariants}>
+              <Input
+                id="lastName"
+                label="Apellidos"
+                type="text"
+                autoComplete="family-name"
+                value={form.lastName}
+                onChange={handleChange('lastName')}
+                onBlur={handleBlur('lastName')}
+                error={touched.lastName ? errors.lastName : undefined}
                 icon={<User size={16} />}
               />
             </motion.div>

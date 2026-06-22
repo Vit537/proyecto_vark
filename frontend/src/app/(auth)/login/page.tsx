@@ -109,10 +109,11 @@ export default function LoginPage() {
       const data = await loginService({ email: form.email, password: form.password });
 
       setTokens(data.access, data.refresh);
+      localStorage.setItem('user', JSON.stringify(data.usuario));
 
       const role = data.usuario.rol;
       if (role === 'administrador') {
-        router.push('/admin/configuracion');
+        router.push('/admin/dashboard');
       } else if (!data.vark_completado && role === 'estudiante') {
         router.push('/test-vark');
       } else {
