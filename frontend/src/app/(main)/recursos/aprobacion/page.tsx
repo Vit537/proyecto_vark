@@ -447,7 +447,7 @@ export default function AprobacionPage() {
       style={{
         display: 'flex',
         height: 'calc(100vh - var(--topbar-height, 70px))',
-        background: 'var(--bg-primary)',
+        background: 'transparent',
         overflow: 'hidden',
       }}
     >

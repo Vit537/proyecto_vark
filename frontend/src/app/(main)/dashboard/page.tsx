@@ -112,7 +112,7 @@ function AnimatedCounter({ to, suffix = '' }: { to: number; suffix?: string }) {
 
 function ProgressBar({ value, color, delay = 0 }: { value: number; color: string; delay?: number }) {
   return (
-    <div style={{ height: 5, borderRadius: 99, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+    <div style={{ height: 5, borderRadius: 99, background: 'var(--bg-glass-hover)', overflow: 'hidden' }}>
       <motion.div
         initial={{ width: 0 }}
         animate={{ width: `${value}%` }}
@@ -131,7 +131,7 @@ const CARD: React.CSSProperties = {
   WebkitBackdropFilter: 'blur(20px)',
   border: '1px solid var(--border-glass)',
   borderRadius: 'var(--radius-lg)',
-  boxShadow: '0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
+  boxShadow: 'var(--shadow-card), inset 0 1px 0 var(--glass-highlight)',
 };
 
 const PAGE_VARIANTS = {
@@ -268,7 +268,7 @@ export default function DashboardPage() {
             <motion.div
               key={i}
               variants={STAGGER_ITEM}
-              whileHover={{ scale: 1.025, boxShadow: '0 8px 32px rgba(0,0,0,0.4), 0 0 22px rgba(59,110,248,0.14)' }}
+              whileHover={{ scale: 1.025, boxShadow: 'var(--shadow-card), 0 0 22px rgba(59,110,248,0.14)' }}
               style={{ ...CARD, padding: '20px 22px' }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -310,7 +310,7 @@ export default function DashboardPage() {
         initial={{ opacity: 0, y: 22 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.42, delay: 0.18 }}
-        whileHover={{ boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 40px rgba(59,110,248,0.12)' }}
+        whileHover={{ boxShadow: 'var(--shadow-card), 0 0 40px rgba(59,110,248,0.12)' }}
         style={{ ...CARD, padding: '30px 36px', marginBottom: 22 }}
       >
         {/* Card header */}
@@ -520,7 +520,7 @@ export default function DashboardPage() {
                 <motion.div
                   key={rec.id}
                   variants={STAGGER_ITEM}
-                  whileHover={{ scale: 1.015, boxShadow: '0 4px 24px rgba(0,0,0,0.3), 0 0 16px rgba(59,110,248,0.1)' }}
+                  whileHover={{ scale: 1.015, boxShadow: 'var(--shadow-card), 0 0 16px rgba(59,110,248,0.1)' }}
                   whileTap={{ scale: 0.99 }}
                   style={{
                     padding: '14px 16px', borderRadius: 'var(--radius-md)',
@@ -559,7 +559,7 @@ export default function DashboardPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div style={{
                           flex: 1, height: 4, borderRadius: 99,
-                          background: 'rgba(255,255,255,0.07)', overflow: 'hidden',
+                          background: 'var(--bg-glass-hover)', overflow: 'hidden',
                         }}>
                           <motion.div
                             initial={{ width: 0 }}

@@ -9,6 +9,7 @@ import {
   HistorialPerfilVARK,
   ConfiguracionMotor,
   ConfiguracionMotorPayload,
+  MLEstado,
 } from './types';
 
 // ─── CU-12: Motor de recomendación CBF ───────────────────────────────────────
@@ -75,4 +76,10 @@ export function actualizarConfiguracionMotor(
     method: 'PUT',
     body: payload,
   });
+}
+
+// ─── Fase 5: Estado del modelo de ML ─────────────────────────────────────────
+
+export function estadoML(): Promise<MLEstado> {
+  return apiRequest<MLEstado>('/recomendacion/ml/estado/');
 }

@@ -11,12 +11,12 @@ export default function BackgroundPattern() {
         position: 'fixed',
         inset: 0,
         zIndex: 0,
-        background: '#060d20',
+        background: 'var(--doodle-bg)',
         pointerEvents: 'none',
       }}
     >
       <defs>
-        <style>{`.ic{fill:none;stroke-linecap:round;stroke-linejoin:round}.b{stroke:#1a9fd4}.w{stroke:rgba(255,255,255,0.5)}.y{stroke:#f0a500}`}</style>
+        <style>{`.ic{fill:none;stroke-linecap:round;stroke-linejoin:round}.b{stroke:var(--doodle-blue)}.w{stroke:var(--doodle-white)}.y{stroke:var(--doodle-yellow)}`}</style>
       </defs>
 
       {/* FILA SUPERIOR */}

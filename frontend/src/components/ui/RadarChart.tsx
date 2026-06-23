@@ -45,13 +45,13 @@ export default function RadarChart({ data, size = 280 }: RadarChartProps) {
           outerRadius="70%"
         >
           <PolarGrid
-            stroke="rgba(255,255,255,0.1)"
+            stroke="var(--border-glass)"
             gridType="polygon"
           />
           <PolarAngleAxis
             dataKey="subject"
             tick={{
-              fill: 'rgba(255,255,255,0.6)',
+              fill: 'var(--text-secondary)',
               fontSize: 12,
               fontFamily: 'var(--font-dm-sans), DM Sans, sans-serif',
             }}

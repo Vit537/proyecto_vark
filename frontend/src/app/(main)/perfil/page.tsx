@@ -15,7 +15,7 @@ import { actualizarMiPerfil, cambiarMiPassword, eliminarMiCuenta } from '@/lib/a
 const CARD: React.CSSProperties = {
   background: 'var(--bg-card)', backdropFilter: 'blur(20px)',
   border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-lg)',
-  boxShadow: '0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
+  boxShadow: 'var(--shadow-card), inset 0 1px 0 var(--glass-highlight)',
 };
 const PAGE = { hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0, transition: { duration: 0.4 } } };
 const ROL_LABEL: Record<Rol, string> = { administrador: 'Administrador', docente: 'Docente', estudiante: 'Estudiante' };

@@ -268,7 +268,7 @@ function AfinidadBar({ pct, color }: { pct: number; color: string }) {
       <div
         style={{
           flex: 1, height: 5, borderRadius: 99,
-          background: 'rgba(255,255,255,0.07)',
+          background: 'var(--bg-glass-hover)',
           overflow: 'hidden',
         }}
       >
@@ -300,7 +300,7 @@ function Stars({ rating }: { rating: number }) {
         <Star
           key={i} size={11}
           fill={i < rating ? 'var(--warning)' : 'none'}
-          color={i < rating ? 'var(--warning)' : 'rgba(255,255,255,0.15)'}
+          color={i < rating ? 'var(--warning)' : 'var(--text-muted)'}
         />
       ))}
     </div>
@@ -421,7 +421,7 @@ function JustContent({ rec, onClose, perfilVark }: { rec: Recurso; onClose: () =
           style={{
             padding: '14px 16px',
             borderRadius: 'var(--radius-md)',
-            background: 'rgba(255,255,255,0.03)',
+            background: 'var(--bg-glass)',
             border: '1px solid var(--border-glass)',
             display: 'flex', flexDirection: 'column', gap: 12,
           }}
@@ -446,7 +446,7 @@ function JustContent({ rec, onClose, perfilVark }: { rec: Recurso; onClose: () =
             <div
               style={{
                 height: 8, borderRadius: 99,
-                background: 'rgba(255,255,255,0.07)',
+                background: 'var(--bg-glass-hover)',
                 overflow: 'hidden',
               }}
             >
@@ -551,7 +551,7 @@ function FeedbackPanel({ rec, onClose }: { rec: Recurso; onClose: () => void }) 
       style={{
         position: 'fixed', inset: 0, zIndex: 60,
         display: 'flex', alignItems: 'flex-end',
-        background: 'rgba(5,11,31,0.72)',
+        background: 'var(--overlay)',
         backdropFilter: 'blur(6px)',
         paddingLeft: 'var(--sidebar-width, 220px)',
       }}
@@ -605,7 +605,7 @@ function FeedbackPanel({ rec, onClose }: { rec: Recurso; onClose: () => void }) 
             type="button" onClick={onClose}
             whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
             style={{
-              background: 'rgba(255,255,255,0.05)',
+              background: 'var(--bg-glass)',
               border: '1px solid var(--border-glass)',
               borderRadius: 'var(--radius-sm)',
               color: 'var(--text-muted)', cursor: 'pointer',
@@ -667,7 +667,7 @@ function FeedbackPanel({ rec, onClose }: { rec: Recurso; onClose: () => void }) 
                     <Star
                       key={i} size={22}
                       fill={i < stars ? 'var(--warning)' : 'none'}
-                      color={i < stars ? 'var(--warning)' : 'rgba(255,255,255,0.15)'}
+                      color={i < stars ? 'var(--warning)' : 'var(--text-muted)'}
                     />
                   ))}
                 </div>
@@ -706,7 +706,7 @@ function FeedbackPanel({ rec, onClose }: { rec: Recurso; onClose: () => void }) 
                           <Star
                             size={30}
                             fill={isActive ? 'var(--warning)' : 'none'}
-                            color={isActive ? 'var(--warning)' : 'rgba(255,255,255,0.15)'}
+                            color={isActive ? 'var(--warning)' : 'var(--text-muted)'}
                           />
                         </motion.button>
                       );
@@ -744,8 +744,8 @@ function FeedbackPanel({ rec, onClose }: { rec: Recurso; onClose: () => void }) 
                           style={{
                             flex: 1, padding: '10px 12px',
                             borderRadius: 'var(--radius-md)',
-                            border: `2px solid ${sel ? cfg.color : 'rgba(255,255,255,0.1)'}`,
-                            background: sel ? cfg.bg : 'rgba(255,255,255,0.03)',
+                            border: `2px solid ${sel ? cfg.color : 'var(--border-glass)'}`,
+                            background: sel ? cfg.bg : 'var(--bg-glass)',
                             color: sel ? cfg.color : 'var(--text-muted)',
                             cursor: 'pointer', fontWeight: 700,
                             fontFamily: 'var(--font-dm-sans)', fontSize: '0.82rem',
@@ -772,8 +772,8 @@ function FeedbackPanel({ rec, onClose }: { rec: Recurso; onClose: () => void }) 
                           whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                           style={{
                             padding: '6px 13px', borderRadius: 999,
-                            border: `1.5px solid ${sel ? 'var(--accent-blue)' : 'rgba(255,255,255,0.12)'}`,
-                            background: sel ? 'rgba(59,110,248,0.15)' : 'rgba(255,255,255,0.03)',
+                            border: `1.5px solid ${sel ? 'var(--accent-blue)' : 'var(--border-glass)'}`,
+                            background: sel ? 'rgba(59,110,248,0.15)' : 'var(--bg-glass)',
                             color: sel ? 'var(--accent-blue)' : 'var(--text-muted)',
                             cursor: 'pointer', fontWeight: 600,
                             fontFamily: 'var(--font-dm-sans)', fontSize: '0.78rem',
@@ -798,7 +798,7 @@ function FeedbackPanel({ rec, onClose }: { rec: Recurso; onClose: () => void }) 
                       rows={3}
                       style={{
                         width: '100%', resize: 'none', boxSizing: 'border-box',
-                        background: 'rgba(255,255,255,0.04)',
+                        background: 'var(--bg-glass)',
                         border: '1px solid var(--border-glass)',
                         borderRadius: 'var(--radius-md)',
                         color: 'var(--text-primary)',
@@ -861,7 +861,7 @@ function RecursoCard({
     <motion.div
       layout
       variants={cardV}
-      whileHover={{ y: -4, boxShadow: `0 12px 40px rgba(0,0,0,0.45)` }}
+      whileHover={{ y: -4, boxShadow: `var(--shadow-card)` }}
       onHoverStart={() => onHover(r)}
       onHoverEnd={() => onHover(null)}
       style={{
@@ -903,7 +903,7 @@ function RecursoCard({
           style={{
             position: 'absolute', top: 9, right: 9,
             background: saved ? 'rgba(59,110,248,0.25)' : 'rgba(0,0,0,0.45)',
-            border: `1px solid ${saved ? 'rgba(59,110,248,0.5)' : 'rgba(255,255,255,0.15)'}`,
+            border: `1px solid ${saved ? 'rgba(59,110,248,0.5)' : 'var(--text-muted)'}`,
             borderRadius: 'var(--radius-sm)',
             color: saved ? 'var(--accent-blue)' : 'rgba(255,255,255,0.7)',
             cursor: 'pointer', padding: 5, display: 'flex',
@@ -1111,7 +1111,7 @@ export default function RecomendacionesPage() {
       style={{
         display: 'flex',
         height: 'calc(100vh - var(--topbar-height, 70px))',
-        background: 'var(--bg-primary)',
+        background: 'transparent',
         overflow: 'hidden',
       }}
     >
@@ -1220,8 +1220,8 @@ export default function RecomendacionesPage() {
                     gap: 2,
                     width: 72, height: 60,
                     borderRadius: 'var(--radius-md)',
-                    border: `2px solid ${active ? cfg.color : 'rgba(255,255,255,0.1)'}`,
-                    background: active ? cfg.bg : 'rgba(255,255,255,0.03)',
+                    border: `2px solid ${active ? cfg.color : 'var(--border-glass)'}`,
+                    background: active ? cfg.bg : 'var(--bg-glass)',
                     cursor: 'pointer', outline: 'none',
                     boxShadow: active ? cfg.glow : 'none',
                     transition: 'all 0.2s',
@@ -1231,7 +1231,7 @@ export default function RecomendacionesPage() {
                     style={{
                       fontFamily: 'var(--font-syne), Syne, sans-serif',
                       fontSize: '1.2rem', fontWeight: 800, lineHeight: 1,
-                      color: active ? cfg.color : 'rgba(255,255,255,0.25)',
+                      color: active ? cfg.color : 'var(--text-muted)',
                       transition: 'color 0.18s',
                     }}
                   >
@@ -1242,7 +1242,7 @@ export default function RecomendacionesPage() {
                       fontFamily: 'var(--font-dm-sans)',
                       fontSize: '0.58rem', fontWeight: 700,
                       textTransform: 'uppercase', letterSpacing: '0.05em',
-                      color: active ? cfg.color : 'rgba(255,255,255,0.2)',
+                      color: active ? cfg.color : 'var(--text-muted)',
                       transition: 'color 0.18s',
                     }}
                   >
@@ -1307,7 +1307,7 @@ export default function RecomendacionesPage() {
                 gap: 14, padding: '70px 24px', textAlign: 'center',
                 borderRadius: 'var(--radius-lg)',
                 border: '1px dashed var(--border-glass)',
-                background: 'rgba(255,255,255,0.01)',
+                background: 'var(--bg-glass)',
               }}
             >
               <Sparkles size={32} style={{ opacity: 0.2 }} />
@@ -1388,7 +1388,7 @@ export default function RecomendacionesPage() {
                         <div
                           style={{
                             flex: 1, height: 4, borderRadius: 99,
-                            background: 'rgba(255,255,255,0.06)',
+                            background: 'var(--bg-glass)',
                             overflow: 'hidden',
                           }}
                         >

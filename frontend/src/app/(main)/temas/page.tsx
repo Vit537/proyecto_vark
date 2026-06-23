@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Search, ChevronRight, Edit2, Trash2,
-  FolderPlus, BookOpen, X, Layers,
+  FolderPlus, BookOpen, X, Layers, GraduationCap,
 } from 'lucide-react';
+import { useAuth } from '@/lib/auth/AuthContext';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Badge from '@/components/ui/Badge';
@@ -126,6 +128,9 @@ function mapTemaAPI(t: TemaAPI): Tema {
 
 // ─── Page Component ───────────────────────────────────────────────────────────
 export default function TemasPage() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const esEstudiante = user?.rol === 'estudiante';
   const [temas, setTemas] = useState<Tema[]>(INITIAL_TEMAS);
 
   // Carga inicial desde el backend (CU-04)
@@ -349,15 +354,19 @@ export default function TemasPage() {
                   fontFamily: 'var(--font-dm-sans), DM Sans, sans-serif',
                 }}
               >
-                Gestiona la jerarquía de temas y subtemas
+                {esEstudiante
+                  ? 'Explora los temas disponibles y toma tu test por tema'
+                  : 'Gestiona la jerarquía de temas y subtemas'}
               </p>
             </div>
             <Badge variant="info">{filteredTemas.length}</Badge>
           </div>
-          <Button variant="primary" onClick={openCreateTema}>
-            <Plus size={14} />
-            &nbsp;Nuevo tema
-          </Button>
+          {!esEstudiante && (
+            <Button variant="primary" onClick={openCreateTema}>
+              <Plus size={14} />
+              &nbsp;Nuevo tema
+            </Button>
+          )}
         </div>
 
         {/* Search */}
@@ -401,7 +410,7 @@ export default function TemasPage() {
               gridTemplateColumns: '1fr 90px 120px 110px 100px',
               padding: '12px 20px',
               borderBottom: '1px solid var(--border-glass)',
-              background: 'rgba(255,255,255,0.02)',
+              background: 'var(--bg-glass)',
             }}
           >
             {['Nombre', 'Subtemas', 'Creado por', 'Fecha', 'Acciones'].map((col) => (
@@ -468,7 +477,7 @@ export default function TemasPage() {
                       onHoverEnd={() => setHoveredRowId(null)}
                       animate={{
                         background:
-                          hoveredRowId === tema.id ? 'rgba(255,255,255,0.025)' : 'transparent',
+                          hoveredRowId === tema.id ? 'var(--bg-glass-hover)' : 'transparent',
                       }}
                       transition={{ duration: 0.12 }}
                       style={{
@@ -571,30 +580,51 @@ export default function TemasPage() {
                       </span>
 
                       {/* Actions */}
-                      <AnimatePresence>
-                        {hoveredRowId === tema.id ? (
-                          <motion.div
-                            key="actions"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            transition={{ duration: 0.12 }}
-                            style={{ display: 'flex', alignItems: 'center', gap: 2 }}
-                          >
-                            <ActionBtn onClick={() => openEditTema(tema)} title="Editar tema" color="var(--text-secondary)">
-                              <Edit2 size={13} />
-                            </ActionBtn>
-                            <ActionBtn onClick={() => openCreateSubtema(tema.id)} title="Añadir subtema" color="var(--accent-cyan)">
-                              <FolderPlus size={13} />
-                            </ActionBtn>
-                            <ActionBtn onClick={() => deleteTema(tema.id)} title="Eliminar tema" color="var(--danger)">
-                              <Trash2 size={13} />
-                            </ActionBtn>
-                          </motion.div>
-                        ) : (
-                          <div key="empty" />
-                        )}
-                      </AnimatePresence>
+                      {esEstudiante ? (
+                        <motion.button
+                          onClick={(e) => { e.stopPropagation(); router.push(`/quiz/${tema.id}`); }}
+                          whileHover={{ scale: 1.03 }}
+                          whileTap={{ scale: 0.97 }}
+                          title="Tomar test de este tema"
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 6,
+                            padding: '6px 12px', borderRadius: 'var(--radius-sm)',
+                            background: 'rgba(59,110,248,0.12)',
+                            border: '1px solid rgba(59,110,248,0.28)',
+                            color: 'var(--accent-blue)', cursor: 'pointer',
+                            fontFamily: 'var(--font-dm-sans), DM Sans, sans-serif',
+                            fontSize: '0.74rem', fontWeight: 600, whiteSpace: 'nowrap',
+                          }}
+                        >
+                          <GraduationCap size={13} />
+                          Tomar test
+                        </motion.button>
+                      ) : (
+                        <AnimatePresence>
+                          {hoveredRowId === tema.id ? (
+                            <motion.div
+                              key="actions"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              transition={{ duration: 0.12 }}
+                              style={{ display: 'flex', alignItems: 'center', gap: 2 }}
+                            >
+                              <ActionBtn onClick={() => openEditTema(tema)} title="Editar tema" color="var(--text-secondary)">
+                                <Edit2 size={13} />
+                              </ActionBtn>
+                              <ActionBtn onClick={() => openCreateSubtema(tema.id)} title="Añadir subtema" color="var(--accent-cyan)">
+                                <FolderPlus size={13} />
+                              </ActionBtn>
+                              <ActionBtn onClick={() => deleteTema(tema.id)} title="Eliminar tema" color="var(--danger)">
+                                <Trash2 size={13} />
+                              </ActionBtn>
+                            </motion.div>
+                          ) : (
+                            <div key="empty" />
+                          )}
+                        </AnimatePresence>
+                      )}
                     </motion.div>
 
                     {/* Subtemas */}
@@ -626,7 +656,7 @@ export default function TemasPage() {
                                   padding: '10px 20px',
                                   borderBottom:
                                     si < tema.subtemas.length - 1
-                                      ? '1px solid rgba(255,255,255,0.03)'
+                                      ? '1px solid var(--border-glass)'
                                       : '1px solid var(--border-glass)',
                                   alignItems: 'center',
                                   background: isSubHovered
@@ -678,7 +708,7 @@ export default function TemasPage() {
                                 </span>
 
                                 <AnimatePresence>
-                                  {isSubHovered ? (
+                                  {isSubHovered && !esEstudiante ? (
                                     <motion.div
                                       key="sub-actions"
                                       initial={{ opacity: 0 }}

@@ -12,6 +12,7 @@ import Badge   from '@/components/ui/Badge';
 import Modal   from '@/components/ui/Modal';
 import Input   from '@/components/ui/Input';
 import Select, { SelectOption } from '@/components/ui/Select';
+import { useAuth } from '@/lib/auth/AuthContext';
 import {
   listarRecursos, crearRecurso, actualizarRecurso, eliminarRecurso, listarTemas,
 } from '@/lib/api/contenido';
@@ -238,7 +239,7 @@ function mapRecursoAPI(r: RecursoAPI): Recurso {
   return {
     id: String(r.id),
     titulo: r.titulo,
-    url: r.url,
+    url: r.url ?? '',
     descripcion: r.descripcion ?? '',
     tema: String(r.tema),
     tipo: TIPO_API_TO_UI[r.tipo_formato] ?? 'documento',
@@ -249,6 +250,7 @@ function mapRecursoAPI(r: RecursoAPI): Recurso {
 }
 
 function getYoutubeThumbnail(url: string): string | null {
+  if (!url) return null;
   const match = url.match(
     /(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
   );
@@ -283,7 +285,7 @@ const cardVariants = {
 };
 
 // ─── Empty state ──────────────────────────────────────────────────────────────
-function EmptyState({ onNew }: { onNew: () => void }) {
+function EmptyState({ onNew, canCreate = true }: { onNew: () => void; canCreate?: boolean }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -322,12 +324,14 @@ function EmptyState({ onNew }: { onNew: () => void }) {
           color: 'var(--text-muted)', margin: 0, maxWidth: 300,
         }}
       >
-        No se encontraron recursos con los filtros actuales. Prueba con otros criterios o agrega uno nuevo.
+        No se encontraron recursos con los filtros actuales. Prueba con otros criterios{canCreate ? ' o agrega uno nuevo' : ''}.
       </p>
-      <Button variant="outline" onClick={onNew}>
-        <Plus size={15} />
-        Nuevo recurso
-      </Button>
+      {canCreate && (
+        <Button variant="outline" onClick={onNew}>
+          <Plus size={15} />
+          Nuevo recurso
+        </Button>
+      )}
     </motion.div>
   );
 }
@@ -404,6 +408,8 @@ const EMPTY_FORM: FormState = {
 };
 
 export default function RecursosPage() {
+  const { user } = useAuth();
+  const esEstudiante = user?.rol === 'estudiante';
   const [recursos,    setRecursos]    = useState<Recurso[]>(MOCK_RECURSOS);
   const [temaOpts,    setTemaOpts]    = useState<SelectOption[]>(TEMAS_OPTS);
   const temaLabelMap = useMemo(
@@ -543,7 +549,7 @@ export default function RecursosPage() {
       style={{
         padding: '32px 32px 48px',
         minHeight: '100vh',
-        background: 'var(--bg-primary)',
+        background: 'transparent',
       }}
     >
       {/* ── Page header ─────────────────────────────────────────────────── */}
@@ -569,10 +575,12 @@ export default function RecursosPage() {
           </h1>
           <Badge variant="default">{recursos.length} registros</Badge>
         </div>
-        <Button variant="primary" onClick={openNew}>
-          <Plus size={16} />
-          Nuevo recurso
-        </Button>
+        {!esEstudiante && (
+          <Button variant="primary" onClick={openNew}>
+            <Plus size={16} />
+            Nuevo recurso
+          </Button>
+        )}
       </motion.div>
 
       {/* ── Filters ──────────────────────────────────────────────────────── */}
@@ -642,7 +650,7 @@ export default function RecursosPage() {
       {/* ── Grid or empty ────────────────────────────────────────────────── */}
       <AnimatePresence mode="wait">
         {filtered.length === 0 ? (
-          <EmptyState key="empty" onNew={openNew} />
+          <EmptyState key="empty" onNew={openNew} canCreate={!esEstudiante} />
         ) : (
           <motion.div
             key="grid"
@@ -665,6 +673,7 @@ export default function RecursosPage() {
                 onLeave={() => setHovered(null)}
                 onEdit={openEdit}
                 onDelete={() => setDeleteId(r.id)}
+                readOnly={esEstudiante}
               />
             ))}
           </motion.div>
@@ -844,9 +853,10 @@ interface CardProps {
   onLeave:   () => void;
   onEdit:    (r: Recurso) => void;
   onDelete:  () => void;
+  readOnly?: boolean;
 }
 
-function RecursoCard({ recurso: r, temaLabel, hovered, onHover, onLeave, onEdit, onDelete }: CardProps) {
+function RecursoCard({ recurso: r, temaLabel, hovered, onHover, onLeave, onEdit, onDelete, readOnly = false }: CardProps) {
   const ytThumb = r.tipo === 'video' ? getYoutubeThumbnail(r.url) : null;
 
   return (
@@ -976,12 +986,16 @@ function RecursoCard({ recurso: r, temaLabel, hovered, onHover, onLeave, onEdit,
             >
               <ExternalLink size={13} />
             </ActionBtn>
-            <ActionBtn title="Editar" onClick={() => onEdit(r)}>
-              <Edit2 size={13} />
-            </ActionBtn>
-            <ActionBtn title="Eliminar" danger onClick={onDelete}>
-              <Trash2 size={13} />
-            </ActionBtn>
+            {!readOnly && (
+              <>
+                <ActionBtn title="Editar" onClick={() => onEdit(r)}>
+                  <Edit2 size={13} />
+                </ActionBtn>
+                <ActionBtn title="Eliminar" danger onClick={onDelete}>
+                  <Trash2 size={13} />
+                </ActionBtn>
+              </>
+            )}
           </div>
         </div>
       </div>

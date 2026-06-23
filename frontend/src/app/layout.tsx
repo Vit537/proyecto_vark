@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { Syne, DM_Sans } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "@/lib/theme/ThemeContext";
+
+// Evita el parpadeo (FOUC): fija data-theme antes del primer pintado.
+const THEME_INIT = `(function(){try{var t=localStorage.getItem('vark_theme');if(t!=='light'&&t!=='dark'){t='dark';}document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme='dark';}})();`;
 
 const syne = Syne({
   subsets: ["latin"],
@@ -27,9 +31,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
+      </head>
       <body className={`${syne.variable} ${dmSans.variable} antialiased`}>
-        {children}
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

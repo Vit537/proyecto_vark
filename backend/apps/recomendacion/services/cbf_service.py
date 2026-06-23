@@ -104,15 +104,29 @@ def recomendar_recursos(estudiante, tema_id, config=None):
         for v in ValoracionRecurso.objects.filter(estudiante=estudiante)
     }
 
+    # ── Fase 5: ¿hay modelo ML entrenado y activo? ────────────────────────────
+    clics_map, perm_map, usar_ml = _preparar_ml(estudiante, recursos, config)
+
     resultados = []
     for recurso in recursos:
-        puntuacion = _similitud_coseno(vector, recurso.categoria_vark)
-
+        # CBF heurístico (similitud coseno + ajuste por valoración)
+        cbf = _similitud_coseno(vector, recurso.categoria_vark)
         val = valoraciones.get(recurso.pk)
         if val == 'util':
-            puntuacion = min(1.0, puntuacion + config.peso_valoracion_util)
+            cbf = min(1.0, cbf + config.peso_valoracion_util)
         elif val == 'no_util':
-            puntuacion *= 0.3  # Penalizar fuertemente
+            cbf *= 0.3  # Penalizar fuertemente
+
+        # Mezcla con la probabilidad de utilidad del modelo ML (si está disponible)
+        puntuacion = cbf
+        if usar_ml:
+            from apps.recomendacion.services.ml import inference as ml_inf
+            prob = ml_inf.predecir_utilidad(
+                vector, recurso.categoria_vark, recurso.nivel_complejidad,
+                recurso.tipo_formato, clics_map.get(recurso.pk, 0), perm_map.get(recurso.pk, 0),
+            )
+            if prob is not None:
+                puntuacion = config.peso_cbf * cbf + config.peso_ml * prob
 
         if puntuacion >= config.umbral_similitud:
             justificacion = _generar_justificacion_local(recurso, vector, tema.nombre)
@@ -124,6 +138,41 @@ def recomendar_recursos(estudiante, tema_id, config=None):
 
     resultados.sort(key=lambda x: x['puntuacion'], reverse=True)
     return resultados[: config.max_recomendaciones]
+
+
+def _preparar_ml(estudiante, recursos, config):
+    """
+    Prepara los insumos para el modelo ML: agregados de clickstream del estudiante
+    sobre los recursos candidatos y la bandera de si se debe usar ML.
+
+    Returns: (clics_map, perm_map, usar_ml)
+    """
+    from collections import defaultdict
+
+    if not getattr(config, 'usar_ml', False):
+        return {}, {}, False
+
+    try:
+        from apps.recomendacion.services.ml import inference as ml_inf
+        if not ml_inf.modelo_disponible():
+            return {}, {}, False
+    except Exception:
+        return {}, {}, False
+
+    from apps.recomendacion.models import EventoClickstream
+
+    clics_map = defaultdict(int)
+    perm_map = defaultdict(int)
+    rec_ids = [r.pk for r in recursos]
+    for ev in EventoClickstream.objects.filter(
+        estudiante=estudiante, recurso_id__in=rec_ids
+    ).values('recurso_id', 'tipo_evento', 'duracion_segundos'):
+        if ev['tipo_evento'] == 'clic':
+            clics_map[ev['recurso_id']] += 1
+        elif ev['tipo_evento'] == 'permanencia':
+            perm_map[ev['recurso_id']] += (ev['duracion_segundos'] or 0)
+
+    return clics_map, perm_map, True
 
 
 # ─── Fase 6: Experimento A/B — el grupo cambia la experiencia ─────────────────

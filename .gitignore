@@ -17,6 +17,9 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Artefactos de ML entrenados (se regeneran con entrenar_ml)
+backend/apps/recomendacion/services/ml/artifacts/
+
 # Python / Django (backend)
 # Virtualenvs
 /backend/venv/

@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bell, X, BookOpen, CheckCircle2, Brain, Info,
-  CheckCheck, ChevronRight, BellOff, User, LogOut, ChevronDown,
+  CheckCheck, ChevronRight, BellOff, User, LogOut, ChevronDown, Sun, Moon,
 } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import { listarNotificaciones, marcarNotificacionLeida, marcarTodasLeidas } from '@/lib/api/analitica';
 import type { NotificacionAPI } from '@/lib/api/types';
 import { useAuth, type Rol } from '@/lib/auth/AuthContext';
+import { useTheme } from '@/lib/theme/ThemeContext';
 
 const ROL_LABEL: Record<Rol, string> = {
   administrador: 'Administrador', docente: 'Docente', estudiante: 'Estudiante',
@@ -170,6 +171,7 @@ function MenuItem({ onClick, icon, label, danger }: { onClick: () => void; icon:
 export default function Topbar() {
   const router                  = useRouter();
   const { user, logout }        = useAuth();
+  const { theme, toggleTheme }  = useTheme();
   const [open, setOpen]         = useState(false);
   const [tab, setTab]           = useState<TabId>('todas');
   const [notifs, setNotifs]     = useState<Notif[]>(INITIAL_NOTIFS);
@@ -241,8 +243,9 @@ export default function Topbar() {
           left: 'var(--sidebar-width)',
           right: 0,
           height: 'var(--topbar-height)',
-          background: 'rgba(5,11,31,0.88)',
+          background: 'var(--bg-topbar)',
           backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
           borderBottom: '1px solid var(--border-glass)',
           display: 'flex',
           alignItems: 'center',
@@ -252,6 +255,44 @@ export default function Topbar() {
           zIndex: 30,
         }}
       >
+        {/* Theme toggle (claro/oscuro) */}
+        <motion.button
+          onClick={toggleTheme}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.92 }}
+          title={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+          aria-label="Cambiar tema"
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--bg-glass)',
+            border: '1px solid var(--border-glass)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--text-muted)',
+            flexShrink: 0,
+            transition: 'background 0.18s, border-color 0.18s, color 0.18s',
+          }}
+        >
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.span
+              key={theme}
+              initial={{ rotate: -90, opacity: 0, scale: 0.6 }}
+              animate={{ rotate: 0, opacity: 1, scale: 1 }}
+              exit={{ rotate: 90, opacity: 0, scale: 0.6 }}
+              transition={{ duration: 0.2 }}
+              style={{ display: 'flex' }}
+            >
+              {theme === 'dark'
+                ? <Moon size={15} color="var(--accent-cyan)" />
+                : <Sun size={15} color="var(--warning)" />}
+            </motion.span>
+          </AnimatePresence>
+        </motion.button>
+
         {/* Notification bell */}
         <motion.button
           onClick={openDrawer}

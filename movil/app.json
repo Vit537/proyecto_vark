@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "VARK",
+    "slug": "vark-movil",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "varkmovil",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#050b1f",
+      "resizeMode": "contain"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vark.movil"
+    },
+    "android": {
+      "package": "com.vark.movil",
+      "adaptiveIcon": {
+        "backgroundColor": "#050b1f"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": ["expo-router", "expo-font"],
+    "extra": {
+      "apiUrl": "http://10.0.2.2:8000/api"
+    }
+  }
+}

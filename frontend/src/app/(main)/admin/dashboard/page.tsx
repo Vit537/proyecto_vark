@@ -5,14 +5,15 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   Users, GraduationCap, FileText, Award,
-  AlertTriangle, Sparkles, ArrowUpRight, BarChart2,
+  AlertTriangle, Sparkles, ArrowUpRight, BarChart2, BrainCircuit,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import Spinner from '@/components/ui/Spinner';
 import RadarChart from '@/components/ui/RadarChart';
 import { dashboardAdmin } from '@/lib/api/analitica';
-import type { DashboardAdmin } from '@/lib/api/types';
+import { estadoML } from '@/lib/api/recomendacion';
+import type { DashboardAdmin, MLEstado } from '@/lib/api/types';
 
 const CARD: React.CSSProperties = {
   background: 'var(--bg-card)',
@@ -38,6 +39,7 @@ const VARK_BADGE: Record<string, 'vark-v' | 'vark-a' | 'vark-r' | 'vark-k'> = {
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [data, setData] = useState<DashboardAdmin | null>(null);
+  const [ml, setMl] = useState<MLEstado | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,6 +49,9 @@ export default function AdminDashboardPage() {
       .then((d) => { if (mounted) setData(d); })
       .catch((e) => { if (mounted) setError(e instanceof Error ? e.message : 'Error al cargar.'); })
       .finally(() => { if (mounted) setLoading(false); });
+    estadoML()
+      .then((m) => { if (mounted) setMl(m); })
+      .catch(() => { /* tarjeta ML opcional */ });
     return () => { mounted = false; };
   }, []);
 
@@ -173,6 +178,81 @@ export default function AdminDashboardPage() {
           ))}
         </motion.div>
       </div>
+
+      {/* Modelo de Machine Learning (Fase 5) */}
+      <motion.div variants={ITEM} initial="hidden" animate="visible" style={{ ...CARD, padding: '24px 26px', marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+          <BrainCircuit size={18} color="var(--accent-purple)" />
+          <h2 style={{ margin: 0, fontFamily: 'var(--font-syne), Syne, sans-serif', fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+            Modelo de Machine Learning
+          </h2>
+          {ml && (
+            <Badge variant={ml.modelo_disponible ? 'success' : 'warning'} size="sm">
+              {ml.modelo_disponible ? 'Entrenado' : 'Sin entrenar'}
+            </Badge>
+          )}
+          {ml?.modelo_disponible && (
+            <Badge variant={ml.usar_ml ? 'info' : 'default'} size="sm">
+              {ml.usar_ml ? `Activo · CBF ${ml.peso_cbf} / ML ${ml.peso_ml}` : 'Inactivo (solo CBF)'}
+            </Badge>
+          )}
+        </div>
+
+        {!ml || !ml.modelo_disponible || !ml.metricas ? (
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+            No hay un modelo entrenado. Ejecuta <code style={{ color: 'var(--accent-purple)' }}>python manage.py seed_ml</code> y luego{' '}
+            <code style={{ color: 'var(--accent-purple)' }}>python manage.py entrenar_ml</code>.
+          </p>
+        ) : (
+          <>
+            {/* Clasificador supervisado */}
+            <p style={{ margin: '0 0 10px', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+              Clasificador de utilidad (supervisado)
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 18 }}>
+              {([
+                ['Accuracy', ml.metricas.clasificador.accuracy],
+                ['Precision', ml.metricas.clasificador.precision],
+                ['Recall', ml.metricas.clasificador.recall],
+                ['F1-score', ml.metricas.clasificador.f1],
+              ] as [string, number][]).map(([label, val]) => (
+                <div key={label} style={{ padding: '12px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
+                  <div style={{ fontFamily: 'var(--font-syne), Syne, sans-serif', fontWeight: 800, fontSize: '1.4rem', color: label === 'F1-score' ? 'var(--accent-purple)' : 'var(--text-primary)' }}>
+                    {Math.round(val * 100)}%
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 2 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+            <p style={{ margin: '0 0 16px', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+              Entrenado con <strong style={{ color: 'var(--text-primary)' }}>{ml.metricas.clasificador.n_muestras}</strong> interacciones ·
+              baseline (clase mayoritaria) <strong style={{ color: 'var(--text-primary)' }}>{Math.round(ml.metricas.clasificador.baseline_mayoria * 100)}%</strong>
+            </p>
+
+            {/* Clustering no supervisado */}
+            <p style={{ margin: '0 0 10px', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+              Segmentación de estudiantes (K-Means, no supervisado)
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Badge variant="vark-a" size="sm">{ml.metricas.clustering.n_clusters} clusters</Badge>
+                {ml.metricas.clustering.silhouette != null && (
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    silhouette <strong style={{ color: 'var(--text-primary)' }}>{ml.metricas.clustering.silhouette}</strong>
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {ml.metricas.clustering.tamanos.map((t, i) => (
+                  <span key={i} style={{ fontSize: '0.72rem', padding: '3px 9px', borderRadius: 99, background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', color: 'var(--text-secondary)' }}>
+                    C{i + 1}: {t}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+      </motion.div>
 
       {/* Bajo engagement */}
       <motion.div variants={ITEM} initial="hidden" animate="visible" style={{ ...CARD, padding: '24px 26px' }}>

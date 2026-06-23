@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts.permissions import EsAdmin, EsEstudiante
+from apps.accounts.permissions import EsAdmin, EsDocenteOAdmin, EsEstudiante
 
 from .models import (
     ConfiguracionMotor,
@@ -223,4 +223,31 @@ class ConfiguracionMotorView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# ─── Fase 5: Estado y métricas del modelo de ML ──────────────────────────────
+
+class MLEstadoView(APIView):
+    """
+    GET /api/recomendacion/ml/estado/
+    Devuelve si hay modelo entrenado, sus métricas y la mezcla CBF/ML configurada.
+    """
+    permission_classes = [EsDocenteOAdmin]
+
+    def get(self, request):
+        try:
+            from apps.recomendacion.services.ml import inference as ml_inf
+            disponible = ml_inf.modelo_disponible()
+            metricas = ml_inf.cargar_metricas()
+        except Exception:
+            disponible, metricas = False, None
+
+        config = ConfiguracionMotor.obtener()
+        return Response({
+            'modelo_disponible': disponible,
+            'usar_ml': config.usar_ml,
+            'peso_cbf': config.peso_cbf,
+            'peso_ml': config.peso_ml,
+            'metricas': metricas,
+        })
 

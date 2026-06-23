@@ -96,6 +96,9 @@ class ConfiguracionMotorSerializer(serializers.ModelSerializer):
             'max_recomendaciones',
             'peso_valoracion_util',
             'dias_ventana_clickstream',
+            'peso_cbf',
+            'peso_ml',
+            'usar_ml',
             'actualizado_en',
         ]
         read_only_fields = ['actualizado_en']
@@ -113,4 +116,14 @@ class ConfiguracionMotorSerializer(serializers.ModelSerializer):
     def validate_max_recomendaciones(self, value):
         if value < 1 or value > 50:
             raise serializers.ValidationError('Debe estar entre 1 y 50.')
+        return value
+
+    def validate_peso_cbf(self, value):
+        if not (0 <= value <= 1):
+            raise serializers.ValidationError('Debe estar entre 0 y 1.')
+        return value
+
+    def validate_peso_ml(self, value):
+        if not (0 <= value <= 1):
+            raise serializers.ValidationError('Debe estar entre 0 y 1.')
         return value

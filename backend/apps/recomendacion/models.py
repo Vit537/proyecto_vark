@@ -170,6 +170,19 @@ class ConfiguracionMotor(models.Model):
         default=30,
         help_text='Días hacia atrás a considerar para el procesamiento de Clickstream.',
     )
+    # Fase 5 (ML): mezcla del score final = peso_cbf·similitud + peso_ml·prob_utilidad_ML
+    peso_cbf = models.FloatField(
+        default=0.6,
+        help_text='Peso de la similitud coseno (CBF) en el score final (0–1).',
+    )
+    peso_ml = models.FloatField(
+        default=0.4,
+        help_text='Peso de la probabilidad de utilidad del modelo ML en el score final (0–1).',
+    )
+    usar_ml = models.BooleanField(
+        default=True,
+        help_text='Si está activo y hay modelo entrenado, combina ML con CBF. Si no, solo CBF.',
+    )
     actualizado_en = models.DateTimeField(auto_now=True)
 
     class Meta:

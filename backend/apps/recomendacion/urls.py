@@ -6,6 +6,7 @@ from .views import (
     ConfiguracionMotorView,
     HistorialPerfilVARKView,
     MarcarRecomendacionVistaView,
+    MLEstadoView,
     RecomendarRecursosView,
     RecomendacionHistorialView,
     RegistrarEventoClickstreamView,
@@ -29,5 +30,8 @@ urlpatterns = [
 
     # CU-06: Configuración del motor (Admin)
     path('configuracion/', ConfiguracionMotorView.as_view(), name='configuracion-motor'),
+
+    # Fase 5: Estado del modelo de ML
+    path('ml/estado/', MLEstadoView.as_view(), name='ml-estado'),
 ]
 

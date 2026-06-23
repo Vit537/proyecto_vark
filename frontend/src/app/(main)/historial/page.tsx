@@ -106,7 +106,7 @@ const CARD: React.CSSProperties = {
   WebkitBackdropFilter: 'blur(20px)',
   border: '1px solid var(--border-glass)',
   borderRadius: 'var(--radius-lg)',
-  boxShadow: '0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
+  boxShadow: 'var(--shadow-card), inset 0 1px 0 var(--glass-highlight)',
 };
 
 const PAGE_VARIANTS = {
@@ -126,11 +126,11 @@ function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
     <div style={{
-      background: 'rgba(5,11,31,0.97)',
+      background: 'var(--bg-secondary)',
       border: '1px solid var(--border-glass)',
       borderRadius: 'var(--radius-md)',
       padding: '12px 18px',
-      boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+      boxShadow: 'var(--shadow-card)',
       fontFamily: 'var(--font-dm-sans), DM Sans, sans-serif',
     }}>
       <p style={{ color: 'var(--text-muted)', fontSize: '0.72rem', margin: '0 0 8px' }}>{label}</p>
@@ -240,7 +240,7 @@ function SummaryTable({ data }: { data: DataPoint[] }) {
               display: 'grid', gridTemplateColumns: '1fr 90px 90px 110px',
               padding: '12px 16px',
               borderRadius: 'var(--radius-md)',
-              borderBottom: i < rows.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+              borderBottom: i < rows.length - 1 ? '1px solid var(--border-glass)' : 'none',
             }}
           >
             {/* Dimension */}
@@ -434,7 +434,7 @@ export default function HistorialPage() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.3 }}
-          whileHover={{ boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 32px rgba(59,110,248,0.1)' }}
+          whileHover={{ boxShadow: 'var(--shadow-card), 0 0 32px rgba(59,110,248,0.1)' }}
           style={{ ...CARD, padding: '28px 28px 20px', marginBottom: 20 }}
         >
           {/* Chart header */}
@@ -453,7 +453,7 @@ export default function HistorialPage() {
           {/* Recharts LineChart */}
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-              <CartesianGrid stroke="rgba(255,255,255,0.06)" strokeDasharray="4 4" />
+              <CartesianGrid stroke="var(--border-glass)" strokeDasharray="4 4" />
               <XAxis
                 dataKey="fecha"
                 tick={{ fill: 'var(--text-muted)', fontSize: 11, fontFamily: 'var(--font-dm-sans)' }}

@@ -667,3 +667,39 @@ export interface PreviewTestVARKResponse {
   total_preguntas: number;
   preguntas: PreguntaCandidataVARK[];
 }
+
+// ─── Fase 5: Estado y métricas del modelo de ML ──────────────────────────────
+
+export interface MLClasificadorMetricas {
+  n_muestras: number;
+  n_test: number;
+  accuracy: number;
+  precision: number;
+  recall: number;
+  f1: number;
+  matriz_confusion: number[][];
+  importancia_features: Record<string, number>;
+  baseline_mayoria: number;
+}
+
+export interface MLClusteringMetricas {
+  n_clusters: number;
+  silhouette: number | null;
+  tamanos: number[];
+  centroides_vark: { V: number; A: number; R: number; K: number }[];
+}
+
+export interface MLMetricas {
+  entrenado_en: string;
+  clasificador: MLClasificadorMetricas;
+  clustering: MLClusteringMetricas;
+  n_estudiantes: number;
+}
+
+export interface MLEstado {
+  modelo_disponible: boolean;
+  usar_ml: boolean;
+  peso_cbf: number;
+  peso_ml: number;
+  metricas: MLMetricas | null;
+}

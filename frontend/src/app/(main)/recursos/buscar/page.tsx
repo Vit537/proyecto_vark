@@ -262,7 +262,7 @@ function RecursoCard({ recurso: r, query }: { recurso: Recurso; query: string })
         background: 'var(--bg-card)',
         backdropFilter: 'blur(20px)',
         overflow: 'hidden',
-        boxShadow: '0 4px 24px rgba(0,0,0,0.3)',
+        boxShadow: 'var(--shadow-card)',
         transition: 'box-shadow 0.2s',
       }}
     >
@@ -552,7 +552,7 @@ export default function BuscarPage() {
     <div
       style={{
         minHeight: '100%',
-        background: 'var(--bg-primary)',
+        background: 'transparent',
         padding: '32px 36px 48px',
       }}
     >
