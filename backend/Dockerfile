@@ -22,8 +22,16 @@ COPY . .
 # Variables de entorno requeridas en build
 ENV DJANGO_SETTINGS_MODULE=config.settings.production
 
-# Recopilar archivos estáticos (admin + whitenoise)
-RUN python manage.py collectstatic --noinput
+# collectstatic necesita cargar los settings, que a su vez requieren vars de entorno.
+# Se pasan valores placeholder solo para este paso del build (no se usan en runtime).
+RUN SECRET_KEY=placeholder-build-only \
+    ALLOWED_HOSTS=localhost \
+    DB_NAME=x \
+    DB_USER=x \
+    DB_PASSWORD=x \
+    DB_HOST=x \
+    GROQ_API_KEY=x \
+    python manage.py collectstatic --noinput
 
 # Cloud Run inyecta la variable PORT (default 8080)
 ENV PORT=8080
