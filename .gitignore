@@ -5,6 +5,7 @@ comando-frontend.md
 credenciales.md
 despliegue.md
 prompt.md
+errores.md
 prompt-conexion.md
 puntos a realizar en el codigo - verificacion.md
 VARK_API.postman_collection.json
@@ -17,8 +18,9 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Artefactos de ML entrenados (se regeneran con entrenar_ml)
-backend/apps/recomendacion/services/ml/artifacts/
+# Artefactos de ML: se commitean para incluirlos en la imagen Docker de producción.
+# Si reentrenas, vuelve a hacer git add + commit + rebuild de la imagen backend.
+# backend/apps/recomendacion/services/ml/artifacts/
 
 # Python / Django (backend)
 # Virtualenvs
