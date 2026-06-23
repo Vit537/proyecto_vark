@@ -12,9 +12,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Instalar dependencias Python
+# Instalar dependencias Python (gunicorn y whitenoise se agregan explícitamente
+# porque requirements.txt está en UTF-16 y el append de estas librerías falló)
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt gunicorn==23.0.0 whitenoise==6.9.0
 
 # Copiar código fuente
 COPY . .
