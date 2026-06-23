@@ -38,8 +38,9 @@ RUN SECRET_KEY=placeholder-build-only \
 ENV PORT=8080
 EXPOSE 8080
 
-# Gunicorn: 2 workers síncronos — ajustar según CPU de Cloud Run
-CMD gunicorn --bind 0.0.0.0:$PORT \
+# Aplicar migraciones pendientes y arrancar gunicorn
+CMD python manage.py migrate --noinput && \
+    gunicorn --bind 0.0.0.0:$PORT \
              --workers 2 \
              --timeout 120 \
              --access-logfile - \
