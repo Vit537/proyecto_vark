@@ -6,12 +6,14 @@
     "orientation": "portrait",
     "scheme": "varkmovil",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "backgroundColor": "#050b1f",
       "resizeMode": "contain"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.vark.movil"
@@ -26,9 +28,22 @@
       "bundler": "metro",
       "output": "single"
     },
-    "plugins": ["expo-router", "expo-font"],
+    "plugins": [
+      "expo-router",
+      "expo-font"
+    ],
     "extra": {
-      "apiUrl": "http://10.0.2.2:8000/api"
-    }
+      "apiUrl": "https://vark-backend-826923971440.us-central1.run.app/api",
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "fb24161a-0098-4afd-bedc-0b36044d331d"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "owner": "henry_759"
   }
 }
