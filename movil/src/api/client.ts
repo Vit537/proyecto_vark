@@ -41,11 +41,23 @@ export async function apiRequest<T>(
     if (token) headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+  } catch (e: any) {
+    clearTimeout(timer);
+    if (e?.name === 'AbortError') throw new Error('Sin conexión con el servidor');
+    throw e;
+  }
+  clearTimeout(timer);
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({} as Record<string, unknown>));
